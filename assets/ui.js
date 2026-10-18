@@ -60,6 +60,9 @@
       panes.forEach((p, k) => p.classList.toggle('on', k === i));
       btns.forEach((b, k) => b.setAttribute('aria-current', String(k === i)));
       try { history.replaceState(null, '', '#l' + (i + 1)); } catch (e) { location.hash = 'l' + (i + 1); }
+      // выбранный уровень подтягиваем в видимую часть ленты, страницу при этом не двигаем
+      const b = btns[i];
+      if (b) bar.scrollTo({ left: b.offsetLeft - (bar.clientWidth - b.offsetWidth) / 2, behavior: 'smooth' });
       window.scrollTo({ top: 0, behavior: 'smooth' });
       dispatchEvent(new CustomEvent('levelshown', { detail: { index: i } }));
     }
