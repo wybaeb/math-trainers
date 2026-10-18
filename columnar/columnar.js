@@ -160,6 +160,10 @@
       pick.appendChild(b);
     });
 
+    // уходим с уровня или со страницы — мультфильм не должен крутиться в фоне
+    addEventListener('levelshown', () => stop());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
+
     slider.addEventListener('input', () => { stop(); show(+slider.value); });
     prev.addEventListener('click', () => { stop(); show(cur - 1); });
     next.addEventListener('click', () => { stop(); show(cur + 1); });
