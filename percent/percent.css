@@ -11,7 +11,7 @@
 .quick button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .readout{font-size:17px;line-height:1.45}
 .readout b{font-size:21px}
-.apples{display:flex;flex-wrap:wrap;gap:4px;font-size:26px;line-height:1.1;margin:8px 0;user-select:none}
+.apples{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;font-size:26px;line-height:1.1;margin:8px 0;user-select:none}
 .apples span{opacity:.25;transition:opacity .15s ease,transform .15s ease}
 .apples span.on{opacity:1;transform:scale(1.08)}
 .ex .pies.hidden-pies{display:none}

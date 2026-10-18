@@ -228,12 +228,115 @@
     host.appendChild(box);
   }
 
+
+  /* ======= ряд яблок: n штук, k закрашено ======= */
+  function applesRow(n, k) {
+    const row = el('div', { class: 'apples', 'aria-hidden': 'true' });
+    const items = [];
+    for (let i = 0; i < n; i++) {
+      const a = el('span', { text: '🍎' });
+      row.appendChild(a); items.push(a);
+    }
+    function set(k) { items.forEach((a, i) => a.classList.toggle('on', i < k)); }
+    set(k || 0);
+    return { node: row, set };
+  }
+
+  /* ================= Уровень 5 — процент от числа (яблоки) ================= */
+  function buildApples(host) {
+    /* --- песочница: сколько яблок в корзине и какой процент берём --- */
+    let total = 20, pct = 25, basketRow = null;
+    const pie = Pie.create({
+      size: 230, value: pct, interactive: true, snapStep: 5, snapTol: 2.2,
+      label: 'Какой процент берём', onChange: v => { pct = v; sync('pie'); }
+    });
+    const pctSlider = el('input', { type: 'range', min: 0, max: 100, step: 5, value: pct, 'aria-label': 'Процент' });
+    const totalInput = el('input', { type: 'number', min: 1, max: 100, step: 1, value: total, 'aria-label': 'Сколько яблок в корзине' });
+    const basketHost = el('div', {});
+    const result = el('div', { class: 'readout' });
+
+    function rebuildBasket() {
+      basketHost.innerHTML = '';
+      basketRow = applesRow(total, 0);
+      basketHost.appendChild(basketRow.node);
+    }
+    function sync(from) {
+      if (from !== 'pie') pie.set(pct, { silent: true });
+      if (from !== 'slider') pctSlider.value = Math.round(pct);
+      const exact = total * pct / 100;
+      const k = Math.round(exact);
+      basketRow.set(k);
+      const whole = Math.abs(exact - k) < 1e-9;
+      result.innerHTML = '<b>' + UI.num(pct) + '%</b> от <b>' + total + '</b> ' + UI.apples(total) +
+        ' = <b>' + UI.num(exact) + '</b> ' + UI.apples(k) +
+        (whole ? '' : ' <span class="muted">(ровно не делится — подсвечено ' + k + ')</span>') +
+        '<div class="muted" style="margin-top:4px">' + total + ' ÷ 100 × ' + UI.num(pct) + ' = ' + UI.num(exact) + '</div>';
+    }
+    pctSlider.addEventListener('input', () => { pct = +pctSlider.value; sync('slider'); });
+    totalInput.addEventListener('input', () => {
+      total = UI.clamp(Math.round(+totalInput.value || 1), 1, 100);
+      rebuildBasket(); sync('total');
+    });
+
+    host.appendChild(el('div', { class: 'card' }, [
+      el('h2', { text: 'Процент от числа', style: 'margin-top:0' }),
+      el('p', { class: 'muted', text: 'Процент — это часть от целого. Целое здесь — корзина яблок. Меняй корзину и долю и смотри, сколько яблок получится.' }),
+      el('div', { class: 'sandbox' }, [
+        el('div', {}, [pie.node]),
+        el('div', { class: 'side' }, [
+          el('div', { class: 'row' }, [el('span', { text: 'В корзине' }), totalInput, el('span', { text: 'яблок' })]),
+          el('div', { style: 'margin:12px 0 2px' }, [pctSlider]),
+          result
+        ])
+      ]),
+      basketHost
+    ]));
+    rebuildBasket(); sync('init');
+
+    /* --- задания --- */
+    const TASKS = [
+      { p: 50, n: 18 }, { p: 25, n: 40 }, { p: 10, n: 70 },
+      { p: 75, n: 12 }, { p: 20, n: 35 }, { p: 5, n: 60 }
+    ];
+    const box = el('div', { class: 'card' });
+    box.appendChild(el('h3', { text: 'Посчитай сам', style: 'margin-top:0' }));
+    TASKS.forEach((t, i) => {
+      const id = task('pct/l5-' + i);
+      const ans = t.n * t.p / 100;
+      const row = el('div', { class: 'ex' });
+      const pieT = Pie.create({ size: 110, value: t.p, center: t.p + '%', tickLabels: false, label: t.p + ' процентов' });
+      const ap = applesRow(t.n, 0);
+      const inp = el('input', { type: 'number', inputmode: 'numeric', placeholder: '?', 'aria-label': 'Сколько яблок' });
+      const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
+      const verdict = el('div', { class: 'verdict' });
+
+      row.appendChild(el('div', { class: 'expr', text: t.p + '% от ' + t.n + ' ' + UI.apples(t.n) + ' = ?' }));
+      row.appendChild(el('div', { class: 'pies' }, [pieT.node]));
+      row.appendChild(ap.node);
+      row.appendChild(el('div', { class: 'answer' }, [inp, el('span', { class: 'muted', text: 'шт.' }), btn]));
+      row.appendChild(verdict);
+      box.appendChild(row);
+
+      UI.checker({
+        id, answer: ans, input: inp, button: btn, verdict,
+        okText: 'Верно! ' + t.p + '% от ' + t.n + ' — это ' + ans,
+        onSolved() { ap.set(ans); UI.pulse(row); }
+      });
+      if (Progress.isDone(id)) {
+        inp.value = ans; inp.classList.add('ok'); ap.set(ans);
+        verdict.className = 'verdict ok'; verdict.textContent = 'Решено';
+      }
+    });
+    host.appendChild(box);
+  }
+
   /* ================= сборка страницы ================= */
   const L = {
     lvl1: buildSandbox,
     lvl2: buildSetPercent,
     lvl3: buildAddSubHinted,
-    lvl4: buildHidden
+    lvl4: buildHidden,
+    lvl5: buildApples
   };
   Object.keys(L).forEach(id => { const n = document.getElementById(id); if (n) L[id](n); });
   UI.levels();
