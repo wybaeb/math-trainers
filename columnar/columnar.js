@@ -116,11 +116,14 @@
   }
 
   /* ================= мультфильм ================= */
-  function movie(host, examples, title, hint, maker) {
+  /** cfg: {title, hint, op, examples:[[a,b]], makers:[{key,label,fn}]} */
+  function movie(host, cfg) {
     const card = el('div', { class: 'card' });
-    card.appendChild(el('h2', { text: title, style: 'margin-top:0' }));
-    card.appendChild(el('p', { class: 'muted', text: hint }));
+    card.appendChild(el('h2', { text: cfg.title, style: 'margin-top:0' }));
+    const hintEl = el('p', { class: 'muted', text: cfg.hint });
+    card.appendChild(hintEl);
 
+    const ways = el('div', { class: 'examples ways' });
     const pick = el('div', { class: 'examples' });
     const stage = el('div', {});
     const say = el('div', { class: 'say', role: 'status', 'aria-live': 'polite' });
@@ -130,9 +133,11 @@
     const play = el('button', { class: 'btn small', type: 'button', text: '▶ Показать по шагам' });
     const counter = el('span', { class: 'muted' });
 
-    let board = null, model = null, cur = 0, timer = null;
+    let board = null, model = null, cur = 0, playing = false, timer = null;
+    let maker = cfg.makers[0], example = cfg.examples[0];
 
-    function show(i) {
+    function show(i, opts) {
+      const o = opts || {};
       cur = UI.clamp(i, 0, model.steps.length - 1);
       slider.value = cur;
       board.apply(cur);
@@ -142,41 +147,78 @@
       counter.textContent = 'шаг ' + (cur + 1) + ' из ' + model.steps.length;
       prev.disabled = cur === 0;
       next.disabled = cur === model.steps.length - 1;
-      if (timer && cur === model.steps.length - 1) stop();
-    }
-    function stop() { clearInterval(timer); timer = null; play.textContent = '▶ Показать по шагам'; }
-    function start() {
-      if (timer) { stop(); return; }
-      if (cur >= model.steps.length - 1) show(0);
-      play.textContent = '⏸ Пауза';
-      timer = setInterval(() => show(cur + 1), 1900);
+      if (o.silent) return;
+      if (o.then) Speech.say(model.steps[cur].say, o.then);
+      else Speech.say(model.steps[cur].say);
     }
 
-    function load(ex, btn) {
+    function stop() {
+      playing = false;
+      if (timer) { clearTimeout(timer); timer = null; }
+      Speech.cancel();
+      play.textContent = '▶ Показать по шагам';
+    }
+    const MIN_STEP = 1900;      // шаг не должен промелькнуть, даже если голос молчит
+    function playStep(i) {
+      const t0 = Date.now();
+      show(i, { then: () => {
+        if (!playing) return;
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(step, Math.max(450, MIN_STEP - (Date.now() - t0)));
+      } });
+      if (!Speech.isOn()) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(step, MIN_STEP + 200);
+      }
+    }
+    function step() {
+      if (!playing) return;
+      if (cur >= model.steps.length - 1) { stop(); return; }
+      playStep(cur + 1);
+    }
+    function start() {
+      if (playing) { stop(); return; }
+      if (cur >= model.steps.length - 1) show(0, { silent: true });
+      playing = true;
+      play.textContent = '⏸ Пауза';
+      playStep(cur);
+    }
+
+    function load(silent) {
       stop();
-      model = maker(ex[0], ex[1]);
+      model = maker.fn(example[0], example[1]);
       board = makeBoard(model, 'movie');
       stage.innerHTML = '';
       stage.appendChild(board.node);
       slider.max = model.steps.length - 1;
-      Array.from(pick.children).forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
-      show(0);
+      Array.from(pick.children).forEach((b, i) => b.setAttribute('aria-pressed', String(cfg.examples[i] === example)));
+      Array.from(ways.children).forEach((b, i) => b.setAttribute('aria-pressed', String(cfg.makers[i] === maker)));
+      if (maker.hint) hintEl.textContent = maker.hint;
+      show(0, { silent: silent !== false });
     }
 
-    examples.forEach((ex, i) => {
-      const b = el('button', { type: 'button', text: ex[0] + (maker === LongMath.multiply ? ' × ' : ' ÷ ') + ex[1] });
-      b.addEventListener('click', () => load(ex, b));
+    if (cfg.makers.length > 1) {
+      cfg.makers.forEach(mk => {
+        const b = el('button', { type: 'button', text: mk.label });
+        b.addEventListener('click', () => { maker = mk; load(); });
+        ways.appendChild(b);
+      });
+      card.appendChild(el('div', { class: 'row center', style: 'justify-content:center;gap:8px;margin-bottom:4px' },
+        [el('span', { class: 'muted', text: 'Способ:' }), ways]));
+    }
+    cfg.examples.forEach(ex => {
+      const b = el('button', { type: 'button', text: ex[0] + cfg.op + ex[1] });
+      b.addEventListener('click', () => { example = ex; load(); });
       pick.appendChild(b);
     });
 
-    // уходим с уровня или со страницы — мультфильм не должен крутиться в фоне
-    addEventListener('levelshown', () => stop());
-    document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
-
-    slider.addEventListener('input', () => { stop(); show(+slider.value); });
+    slider.addEventListener('input', () => { stop(); show(+slider.value, { silent: true }); });
+    slider.addEventListener('change', () => { show(+slider.value); });
     prev.addEventListener('click', () => { stop(); show(cur - 1); });
     next.addEventListener('click', () => { stop(); show(cur + 1); });
     play.addEventListener('click', start);
+    addEventListener('levelshown', () => stop());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
 
     card.appendChild(pick);
     card.appendChild(stage);
@@ -184,11 +226,11 @@
     card.appendChild(el('div', { class: 'movie-ctl' }, [prev, slider, next]));
     card.appendChild(el('div', { class: 'movie-ctl' }, [play, counter]));
     host.appendChild(card);
-    load(examples[0], pick.firstChild);
+    load(true);
   }
 
   /* ================= тренажёр с подсказчиком ================= */
-  function practice(host, id, a, b, maker) {
+  function practice(host, id, a, b, maker, op) {
     const m = maker(a, b);
     const board = makeBoard(m, 'practice');
     const wrap = el('div', { class: 'pcard' });
@@ -239,7 +281,7 @@
       if (say.style.display !== 'none') showHint();
     }
 
-    function finish() {
+    function finish(quiet) {
       cur = m.steps.length - 1;
       board.apply(cur);
       board.mark(-1);
@@ -247,6 +289,7 @@
       say.style.display = '';
       say.className = 'say done';
       say.textContent = m.steps[m.steps.length - 1].say;
+      if (!quiet) Speech.say(say.textContent);
       hintBtn.disabled = true; writeBtn.disabled = true;
       Progress.done(id);
       UI.pulse(wrap);
@@ -256,6 +299,7 @@
       say.style.display = '';
       say.className = 'say';
       say.textContent = (pending ? pending + ' ' : '') + (m.steps[cur] ? m.steps[cur].say : '');
+      Speech.say(say.textContent);
     }
 
     function accept(it) {
@@ -301,11 +345,12 @@
       });
       hintBtn.disabled = false; writeBtn.disabled = false;
       say.style.display = 'none';
+      Speech.cancel();
       cur = 0; pos = 0; pending = '';
       advance();
     });
 
-    wrap.appendChild(el('div', { class: 'title', text: a + (maker === LongMath.multiply ? ' × ' : ' ÷ ') + b + ' = ?' }));
+    wrap.appendChild(el('div', { class: 'title', text: a + op + b + ' = ?' }));
     wrap.appendChild(board.node);
     wrap.appendChild(say);
     wrap.appendChild(el('div', { class: 'ctl' }, [hintBtn, writeBtn, againBtn]));
@@ -314,32 +359,43 @@
     advance();
     if (Progress.isDone(id)) {
       board.items.forEach(it => { if (it.isInput) { it.node.value = it.cell.text; it.node.classList.add('ok'); } });
-      finish();
+      finish(true);
     }
     return wrap;
   }
 
   /* ================= уровни ================= */
   function buildMulMovie(host) {
-    movie(host, [[23, 4], [328, 47], [506, 7], [84, 36]],
-      'Умножение столбиком — по шагам',
-      'Выбери пример и двигай бегунок: каждый шаг показывает, какую цифру куда писать и что держать в уме. Жёлтым сверху — перенос, голубым — куда пишем сейчас, зелёным — какие цифры перемножаем.',
-      LongMath.multiply);
+    movie(host, {
+      title: 'Умножение столбиком — по шагам',
+      hint: '',
+      op: ' × ',
+      examples: [[23, 4], [47, 23], [84, 36], [328, 47]],
+      makers: [
+        { key: 'sum', label: 'через сложение', fn: LongMath.multiplyBySum,
+          hint: 'Умножаем каждую цифру на каждую, каждый кусочек пишем отдельной строчкой со сдвигом, а потом складываем всё столбиком. В уме держать нечего. Зелёным — какие цифры перемножаем, голубым — куда пишем сейчас.' },
+        { key: 'carry', label: 'с переносом в уме', fn: LongMath.multiply,
+          hint: 'Короткий школьный способ: умножаем на одну цифру целиком, а лишний десяток держим в уме (жёлтая цифра сверху).' }
+      ]
+    });
   }
   function buildDivMovie(host) {
-    movie(host, [[96, 8], [4256, 7], [728, 13], [2024, 8]],
-      'Деление уголком — по шагам',
-      'Делимое слева, делитель справа за уголком. Бегунок показывает, как подбираем цифру частного, что вычитаем и какую цифру сносим.',
-      LongMath.divide);
+    movie(host, {
+      title: 'Деление уголком — по шагам',
+      hint: 'Делимое слева, делитель справа за уголком. Бегунок показывает, как подбираем цифру частного, что вычитаем и какую цифру сносим.',
+      op: ' ÷ ',
+      examples: [[96, 8], [4256, 7], [728, 13], [2024, 8]],
+      makers: [{ key: 'div', label: 'уголком', fn: LongMath.divide }]
+    });
   }
   function buildMulPractice(host) {
     host.appendChild(el('div', { class: 'card' }, [
       el('h2', { text: 'Умножай столбиком сам', style: 'margin-top:0' }),
-      el('p', { class: 'muted', text: 'Вписывай цифры в клетки — голубая клетка показывает, куда писать сейчас. Не идёт — нажми «Подсказать шаг»: подсказчик расскажет, что делать. Кнопка «Записать за меня» впишет одну цифру.' })
+      el('p', { class: 'muted', text: 'Умножаем каждую цифру на каждую и пишем кусочки отдельными строчками со сдвигом, а потом складываем. Голубая клетка показывает, куда писать сейчас. Не идёт — нажми «Подсказать шаг». Кнопка «Записать за меня» впишет одну цифру.' })
     ]));
     const box = el('div', { class: 'card' });
-    [[36, 4], [128, 7], [47, 23], [205, 36]].forEach((ex, i) =>
-      practice(box, task('col/mul-' + i), ex[0], ex[1], LongMath.multiply));
+    [[36, 4], [128, 7], [47, 23], [58, 24]].forEach((ex, i) =>
+      practice(box, task('col/mul-' + i), ex[0], ex[1], LongMath.multiplyBySum, ' × '));
     host.appendChild(box);
   }
   function buildDivPractice(host) {
@@ -349,9 +405,12 @@
     ]));
     const box = el('div', { class: 'card' });
     [[84, 6], [952, 7], [768, 12], [5184, 16]].forEach((ex, i) =>
-      practice(box, task('col/div-' + i), ex[0], ex[1], LongMath.divide));
+      practice(box, task('col/div-' + i), ex[0], ex[1], LongMath.divide, ' ÷ '));
     host.appendChild(box);
   }
+
+  const voiceSlot = $('#voice');
+  if (voiceSlot) voiceSlot.appendChild(Speech.button());
 
   const L = { lvl1: buildMulMovie, lvl2: buildMulPractice, lvl3: buildDivMovie, lvl4: buildDivPractice };
   Object.keys(L).forEach(id => { const n = document.getElementById(id); if (n) L[id](n); });

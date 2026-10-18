@@ -126,10 +126,23 @@ def main():
         card = pg.locator("#lvl2 .pcard").first
         card.scroll_into_view_if_needed()
         card.locator("input.cur").click()
-        for ch in "441":
+        for ch in "241":
             pg.keyboard.type(ch)
             pg.wait_for_timeout(100)
         ck(card.locator("input.ok").count() >= 3, "фокус сам идёт по клеткам столбика")
+
+        # --- умножение считается через сложение частичных произведений
+        pg.goto(BASE + "columnar/")
+        pg.get_by_role("button", name="47 × 23").click()
+        rows = pg.evaluate(
+            "Array.from(document.querySelectorAll('#lvl1 .brow')).length")
+        sl = pg.locator("#lvl1 input[type=range]")
+        sl.fill(sl.get_attribute("max"))
+        pg.wait_for_timeout(150)
+        ck("1081" in pg.locator("#lvl1 .say").inner_text(), "47 × 23 через сложение = 1081")
+        ck(rows >= 8, f"четыре частичных произведения в столбике (строк доски {rows})")
+        ck(pg.locator(".ways button").count() == 2, "есть переключатель способа")
+        ck(pg.locator("#voice button").count() == 1, "есть кнопка чтения вслух")
 
         # --- неинтерактивная полоска не должна съедать прокрутку пальцем
         pg.goto(BASE + "rounding/")

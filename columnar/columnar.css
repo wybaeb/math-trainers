@@ -39,3 +39,7 @@
 .pcard:first-of-type{border-top:0}
 .pcard .title{font-size:21px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
 .pcard .ctl{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+
+.topbar .voice{cursor:pointer;font:inherit}
+.topbar .voice[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.examples.ways button{font-size:15px}
