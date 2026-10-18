@@ -109,10 +109,102 @@
     host.appendChild(grid);
   }
 
+
+  /* ======= общий конструктор примера с процентами и диаграммами ======= */
+  /** cfg: {id, a, op:'+'|'−', b, reveal:'always'|'button'|'none', size} */
+  function percentExample(cfg) {
+    const a = cfg.a, b = cfg.b, op = cfg.op;
+    const answer = op === '+' ? a + b : a - b;
+    const size = cfg.size || 124;
+    const wrap = el('div', { class: 'ex' });
+
+    const pieA = Pie.create({ size, value: a, center: a + '%', tickLabels: false, label: a + ' процентов' });
+    const pieB = Pie.create({ size, value: b, center: b + '%', tickLabels: false, label: b + ' процентов' });
+    const pieR = Pie.create({ size, value: answer, center: '', tickLabels: false,
+      color: 'var(--ok)', label: 'Диаграмма ответа' });
+
+    const pies = el('div', { class: 'pies' }, [
+      el('div', { class: 'pie-box' }, [pieA.node]),
+      el('div', { class: 'op', text: op }),
+      el('div', { class: 'pie-box' }, [pieB.node]),
+      el('div', { class: 'op', text: '=' }),
+      el('div', { class: 'pie-box' }, [pieR.node, el('div', { class: 'cap', text: 'сколько?' })])
+    ]);
+
+    const inp = el('input', { type: 'number', inputmode: 'decimal', 'aria-label': 'Ответ в процентах', placeholder: '?' });
+    const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
+    const verdict = el('div', { class: 'verdict' });
+
+    wrap.appendChild(el('div', { class: 'expr', text: a + '% ' + op + ' ' + b + '% = ?' }));
+
+    let peekBtn = null;
+    if (cfg.reveal === 'button') {
+      pies.classList.add('hidden-pies');
+      peekBtn = el('button', { class: 'btn quiet small peek', type: 'button', text: '👀 Подсмотреть диаграммы' });
+      peekBtn.addEventListener('click', () => {
+        const on = pies.classList.toggle('show');
+        peekBtn.textContent = on ? '🙈 Спрятать диаграммы' : '👀 Подсмотреть диаграммы';
+      });
+      wrap.appendChild(peekBtn);
+    }
+    if (cfg.reveal !== 'none') wrap.appendChild(pies);
+
+    wrap.appendChild(el('div', { class: 'answer' }, [
+      el('span', { class: 'muted', text: 'Ответ:' }), inp, el('span', { text: '%' }), btn
+    ]));
+    wrap.appendChild(verdict);
+
+    UI.checker({
+      id: cfg.id, answer, tolerance: 1e-9, input: inp, button: btn, verdict,
+      okText: 'Верно! ' + a + '% ' + op + ' ' + b + '% = ' + answer + '%',
+      onSolved() {
+        pieR.setCenter(answer + '%');
+        pieR.setColor('var(--ok)');
+        if (cfg.reveal === 'button' && !pies.classList.contains('show')) {
+          pies.classList.add('show');
+          peekBtn.textContent = '🙈 Спрятать диаграммы';
+        }
+        UI.pulse(wrap);
+      }
+    });
+
+    if (Progress.isDone(cfg.id)) {
+      inp.value = answer; inp.classList.add('ok'); pieR.setCenter(answer + '%');
+      verdict.className = 'verdict ok'; verdict.textContent = 'Решено';
+      if (cfg.reveal === 'button') pies.classList.add('show');
+    }
+    return wrap;
+  }
+
+  /* ================= Уровень 3 — сложение и вычитание с подсказками ================= */
+  const ADD_SUB = [
+    { a: 25, op: '+', b: 50 },
+    { a: 10, op: '+', b: 15 },
+    { a: 60, op: '−', b: 25 },
+    { a: 35, op: '+', b: 40 },
+    { a: 100, op: '−', b: 40 },
+    { a: 50, op: '−', b: 20 },
+    { a: 45, op: '+', b: 45 }
+  ];
+
+  function buildAddSubHinted(host) {
+    const card = el('div', { class: 'card' }, [
+      el('h2', { text: 'Складываем и вычитаем проценты', style: 'margin-top:0' }),
+      el('p', { class: 'muted', text: 'Зелёная диаграмма справа — это ответ. Посчитай сам, а если трудно — сосчитай её доли по засечкам.' })
+    ]);
+    host.appendChild(card);
+    const box = el('div', { class: 'card' });
+    ADD_SUB.forEach((t, i) => box.appendChild(percentExample({
+      id: task('pct/l3-' + i), a: t.a, op: t.op, b: t.b, reveal: 'always'
+    })));
+    host.appendChild(box);
+  }
+
   /* ================= сборка страницы ================= */
   const L = {
     lvl1: buildSandbox,
-    lvl2: buildSetPercent
+    lvl2: buildSetPercent,
+    lvl3: buildAddSubHinted
   };
   Object.keys(L).forEach(id => { const n = document.getElementById(id); if (n) L[id](n); });
   UI.levels();
