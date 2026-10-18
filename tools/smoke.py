@@ -106,6 +106,43 @@ def main():
                    "столбик: " + card.locator(".title").inner_text())
         ck(pg.locator("#score").inner_text() == "Решено 8 из 8", "счётчик столбика сходится")
 
+        # --- подсветка цифры частного попадает в нужную клетку
+        pg.goto(BASE + "columnar/")
+        pg.locator(".levels button").nth(2).click()
+        pg.get_by_role("button", name="4256 ÷ 7").click()
+        sl = pg.locator("#lvl3 input[type=range]")
+        for step, expect in ((3, "6"), (7, "0"), (9, "8")):
+            sl.fill(str(step))
+            pg.wait_for_timeout(100)
+            hl = pg.locator("#lvl3 .bcell.hl")
+            got = hl.first.text_content() if hl.count() else "(нет)"
+            ck(hl.count() == 1 and got == expect, f"уголок, шаг {step}: подсвечено «{got}»")
+
+        # --- в тренажёре фокус сам переходит на следующую клетку
+        pg.goto(BASE + "columnar/")
+        pg.evaluate("localStorage.clear()")
+        pg.reload()
+        pg.locator(".levels button").nth(1).click()
+        card = pg.locator("#lvl2 .pcard").first
+        card.scroll_into_view_if_needed()
+        card.locator("input.cur").click()
+        for ch in "441":
+            pg.keyboard.type(ch)
+            pg.wait_for_timeout(100)
+        ck(card.locator("input.ok").count() >= 3, "фокус сам идёт по клеткам столбика")
+
+        # --- неинтерактивная полоска не должна съедать прокрутку пальцем
+        pg.goto(BASE + "rounding/")
+        pg.locator(".levels button").nth(1).click()
+        ta = pg.evaluate("getComputedStyle(document.querySelector('#lvl2 svg.nline')).touchAction")
+        ck(ta != "none", f"полоска задания не перехватывает жест (touch-action={ta})")
+
+        # --- старые ключи в хранилище не дают фантомного прогресса
+        pg.evaluate("localStorage.setItem('math-trainers/v1', JSON.stringify({'rnd/legacy':{done:true}}))")
+        pg.reload()
+        ck(pg.locator("#score").inner_text() == "Решено 0 из 24", "фантомный прогресс не считается")
+        pg.evaluate("localStorage.clear()")
+
         # --- Safari: захват указателя может не сработать
         pg2 = ctx.new_page()
         pg2.add_init_script("Element.prototype.setPointerCapture=function(){throw new Error('no capture')};")

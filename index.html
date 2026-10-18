@@ -46,8 +46,9 @@
 <script src="assets/ui.js"></script>
 <script>
   UI.$$('.pr').forEach(n => {
-    const done = UI.Progress.countDone(n.dataset.prefix);
     const total = +n.dataset.total;
+    // ключи могли остаться от прежней нумерации заданий — выше потолка не показываем
+    const done = Math.min(UI.Progress.countDone(n.dataset.prefix), total);
     n.innerHTML = '';
     if (done > 0) n.appendChild(UI.el('div', { class: 'pill' + (done >= total ? ' ok' : ''), text: 'Решено ' + done + ' из ' + total }));
   });

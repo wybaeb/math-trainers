@@ -6,10 +6,16 @@
   const task = id => { TASK_IDS.push(id); return id; };
 
   /* ================= доска: сетка ячеек из модели ================= */
+  const ROW_NAME = { sum: 'цифра ответа', q: 'цифра частного', carry: 'перенос', carry2: 'перенос' };
+
   function makeBoard(m, mode) {
-    const root = el('div', { class: 'board' });
+    const root = el('div', {
+      class: 'board', role: 'group',
+      'aria-label': m.kind === 'mul' ? 'Умножение столбиком' : 'Деление уголком'
+    });
     const left = el('div', { class: 'left' });
     const slots = new Map();   // 'row/col' → ячейка-контейнер
+    const qSeq = new Map();    // колонка делимого → место цифры в частном
 
     // когда появляется черта над строкой: вместе с тем, что под ней подводят
     const minStep = id => {
@@ -44,7 +50,7 @@
       const right = el('div', { class: 'right' });
       const divCells = m.cells.filter(c => c.zone === 'right' && c.row === 'div');
       const qCells = m.cells.filter(c => c.zone === 'right' && c.row === 'q').sort((a, b) => a.col - b.col);
-      qCells.forEach((c, i) => { c.seq = i; });
+      qCells.forEach((c, i) => { c.seq = i; qSeq.set(c.col, i); });
       const width = Math.max(divCells.length, qCells.length, 1);
       [['div', false], ['q', true]].forEach(([id, line]) => {
         const rowEl = el('div', { class: 'brow' + (line ? ' qline' : '') });
@@ -69,7 +75,8 @@
       if (isInput) {
         node = el('input', {
           type: 'text', inputmode: 'numeric', maxlength: 1, disabled: 'disabled',
-          'aria-label': 'цифра', autocomplete: 'off'
+          'aria-label': ROW_NAME[c.row] || (c.row === 'q' ? 'цифра частного' : 'цифра'),
+          autocomplete: 'off'
         });
       } else {
         node = el('span', { text: c.text });
@@ -98,7 +105,9 @@
       root.querySelectorAll('.bcell.hl,.bcell.src').forEach(n => n.classList.remove('hl', 'src'));
       const s = m.steps[step];
       if (!s) return;
-      const key = p => (p.zone === 'right' ? p.row + '/' + p.col : p.row + '/' + p.col);
+      const key = p => (p.zone === 'right' && p.row === 'q' && qSeq.has(p.col))
+        ? 'q/' + qSeq.get(p.col)
+        : p.row + '/' + p.col;
       if (s.focus) { const n = slots.get(key(s.focus)); if (n) n.classList.add('hl'); }
       (s.source || []).forEach(p => { const n = slots.get(key(p)); if (n) n.classList.add('src'); });
     }
@@ -114,7 +123,7 @@
 
     const pick = el('div', { class: 'examples' });
     const stage = el('div', {});
-    const say = el('div', { class: 'say' });
+    const say = el('div', { class: 'say', role: 'status', 'aria-live': 'polite' });
     const slider = el('input', { type: 'range', min: 0, max: 1, value: 0, step: 1, 'aria-label': 'Шаг' });
     const prev = el('button', { class: 'btn quiet small', type: 'button', text: '←' });
     const next = el('button', { class: 'btn quiet small', type: 'button', text: '→' });
@@ -183,7 +192,7 @@
     const m = maker(a, b);
     const board = makeBoard(m, 'practice');
     const wrap = el('div', { class: 'pcard' });
-    const say = el('div', { class: 'say', style: 'display:none' });
+    const say = el('div', { class: 'say', role: 'status', 'aria-live': 'polite', style: 'display:none' });
     const hintBtn = el('button', { class: 'btn quiet small', type: 'button', text: '💡 Подсказать шаг' });
     const writeBtn = el('button', { class: 'btn quiet small', type: 'button', text: '✍️ Записать за меня' });
     const againBtn = el('button', { class: 'btn quiet small', type: 'button', text: '↺ Сначала' });
@@ -208,7 +217,9 @@
         if (i === pos) { it.node.classList.add('cur'); }
       });
       const active = ins[pos];
-      if (active) { try { active.focus({ preventScroll: true }); } catch (e) {} }
+      if (active && active.node.focus) {
+        try { active.node.focus({ preventScroll: true }); } catch (e) { active.node.focus(); }
+      }
     }
 
     function advance() {
@@ -248,6 +259,7 @@
     }
 
     function accept(it) {
+      if (it.timer) { clearTimeout(it.timer); it.timer = null; }
       it.node.classList.remove('bad');
       it.node.classList.add('ok');
       it.node.disabled = true;
@@ -265,7 +277,10 @@
         if (v === it.cell.text) accept(it);
         else {
           it.node.classList.add('bad');
-          setTimeout(() => { it.node.value = ''; it.node.classList.remove('bad'); }, 350);
+          if (it.timer) clearTimeout(it.timer);
+          it.timer = setTimeout(() => {
+            it.timer = null; it.node.value = ''; it.node.classList.remove('bad');
+          }, 350);
         }
       });
       it.node.addEventListener('focus', () => it.node.select && it.node.select());
@@ -346,7 +361,7 @@
   function updScore() {
     const total = TASK_IDS.length;
     if (!total) { score.style.display = 'none'; return; }
-    score.textContent = 'Решено ' + Progress.countDone('col/') + ' из ' + total;
+    score.textContent = 'Решено ' + Progress.countDone('col/', TASK_IDS) + ' из ' + total;
   }
   addEventListener('progress', updScore); updScore();
 })();

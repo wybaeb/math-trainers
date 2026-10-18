@@ -3,7 +3,16 @@
 (function (global) {
   'use strict';
 
-  const RANK = ['единицы', 'десятки', 'сотни', 'тысячи'];
+  const RANK = ['единицы', 'десятки', 'сотни', 'тысячи', 'десятки тысяч', 'сотни тысяч'];
+  const rank = j => RANK[j] || ('разряд №' + (j + 1));
+  function plural(n, one, few, many) {
+    const a = Math.abs(n) % 100, b = a % 10;
+    if (a > 10 && a < 20) return many;
+    if (b > 1 && b < 5) return few;
+    if (b === 1) return one;
+    return many;
+  }
+  const times = n => plural(n, 'раз', 'раза', 'раз');
 
   /** Ячейка: {zone,row,col,text,kind,step,until}
    *  kind: given — дано, write — то, что записывает ученик, carry — в уме, sign — знак, bring — снесённая цифра
@@ -58,8 +67,8 @@
       carryCells = [];
 
       if (B.length > 1) {
-        m.step('Теперь умножаем всё число ' + a + ' на ' + bd + ' — это ' + RANK[j] + ' второго числа.' +
-          (j > 0 ? ' Результат сдвигаем на ' + j + ' ' + (j === 1 ? 'клетку' : 'клетки') + ' влево.' : ''), []);
+        m.step('Теперь умножаем всё число ' + a + ' на ' + bd + ' — это ' + rank(j) + ' второго числа.' +
+          (j > 0 ? ' Результат сдвигаем на ' + j + ' ' + plural(j, 'клетку', 'клетки', 'клеток') + ' влево.' : ''), []);
       } else {
         m.step('Умножаем ' + a + ' на ' + bd + ', начиная с единиц.', []);
       }
@@ -84,7 +93,8 @@
         const c = put(row, col, carry, 'write', m.steps.length);
         carryCells.forEach(x => { x.until = m.steps.length; });
         carryCells = [];
-        m.step('В уме остался ' + carry + ' — записываем его слева.', [c], { focus: { row, col } });
+        m.step('В уме ' + plural(carry, 'остался', 'осталось', 'осталось') + ' ' + carry + ' — записываем его слева.',
+          [c], { focus: { row, col } });
       }
     }
 
@@ -104,9 +114,13 @@
         const dg = total % 10, nc = (total - dg) / 10;
         const added = [put('sum', col, dg, 'write', m.steps.length)];
         if (nc) { const c = put('carry2', col - 1, nc, 'carry', m.steps.length); carryCells.push(c); added.push(c); }
-        let say = nums.length ? nums.join(' + ') : '0';
-        if (carry) say += ' + ' + carry + ' в уме';
-        say += ' = ' + total + '. Пишем ' + dg + (nc ? ', ' + nc + ' в уме.' : '.');
+        let say;
+        if (nums.length + (carry ? 1 : 0) < 2) {
+          say = 'В этом столбике только одна цифра — ' + total + '. Так и пишем.';
+        } else {
+          say = (nums.length ? nums.join(' + ') : '0') + (carry ? ' + ' + carry + ' в уме' : '') +
+            ' = ' + total + '. Пишем ' + dg + (nc ? ', ' + nc + ' в уме.' : '.');
+        }
         m.step(say, added, { focus: { row: 'sum', col } });
         carry = nc;
       }
@@ -140,17 +154,23 @@
       if (i > 0) {
         const added = [];
         if (curRow !== 'd') added.push(put(curRow, i + 1, dg, 'bring', m.steps.length));
-        m.step('Сносим цифру ' + dg + '. Теперь делим ' + (cur * 10 + dg) + '.', added,
+        m.step(curRow === 'd'
+          ? 'Вместе с ней получается ' + (cur * 10 + dg) + ' — его и делим.'
+          : 'Сносим цифру ' + dg + '. Теперь делим ' + (cur * 10 + dg) + '.', added,
           { focus: curRow !== 'd' ? { row: curRow, col: i + 1 } : null });
       }
       cur = cur * 10 + dg;
 
+      const last = i === A.length - 1;
       if (cur < b) {
         if (started) {
           const c = put('q', i, 0, 'write', m.steps.length, 'right');
-          m.step(cur + ' меньше ' + b + ' — в частное пишем 0 и сносим следующую цифру.', [c], { focus: { row: 'q', col: i, zone: 'right' } });
-        } else {
-          m.step(cur + ' на ' + b + ' не делится — берём ещё одну цифру.', []);
+          m.step(cur + ' меньше ' + b + ' — в частное пишем 0' +
+            (last ? (cur === 0 ? ', остатка нет.' : ', а ' + cur + ' останется в остатке.')
+                  : ' и сносим следующую цифру.'),
+            [c], { focus: { row: 'q', col: i, zone: 'right' } });
+        } else if (!last) {
+          m.step(b + ' в ' + cur + ' не помещается — берём ещё одну цифру.', []);
         }
         continue;
       }
@@ -158,7 +178,7 @@
       const q = Math.floor(cur / b), prod = q * b, rem = cur - prod;
       started = true;
       const qc = put('q', i, q, 'write', m.steps.length, 'right');
-      m.step('Сколько раз ' + b + ' помещается в ' + cur + '? ' + q + ' раз, ведь ' + b + ' × ' + q + ' = ' + prod + '.',
+      m.step('Сколько раз ' + b + ' помещается в ' + cur + '? ' + q + ' ' + times(q) + ', ведь ' + b + ' × ' + q + ' = ' + prod + '.',
         [qc], { focus: { row: 'q', col: i, zone: 'right' } });
 
       const sRow = 's' + k, rRow = 'r' + k;
@@ -179,6 +199,12 @@
         rCells, { focus: writeRem ? { row: rRow, col: i + 1 } : null });
 
       cur = rem; curRow = rRow; k++;
+    }
+
+    if (!started) {
+      const c = put('q', 0, 0, 'write', m.steps.length, 'right');
+      m.step(b + ' в ' + a + ' не помещается ни разу — в частном 0, а ' + a + ' целиком остаётся в остатке.',
+        [c], { focus: { row: 'q', col: 0, zone: 'right' } });
     }
 
     m.rows = rows;
