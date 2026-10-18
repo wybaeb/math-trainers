@@ -44,9 +44,11 @@
       Object.keys(a).forEach(k => { if (!prefix || k.startsWith(prefix)) delete a[k]; });
       writeAll(a); dispatchEvent(new CustomEvent('progress'));
     },
-    countDone(prefix) {
+    /** known — список настоящих id заданий; без него считаем по префиксу (хаб) */
+    countDone(prefix, known) {
       const a = readAll();
-      return Object.keys(a).filter(k => k.indexOf(prefix) === 0 && a[k] && a[k].done).length;
+      const keys = known || Object.keys(a).filter(k => k.indexOf(prefix) === 0);
+      return keys.filter(k => a[k] && a[k].done).length;
     }
   };
 
@@ -79,11 +81,12 @@
     const inp = opts.input, out = opts.verdict;
     let solved = false;
     function norm(s) { return String(s).replace(',', '.').replace(/\s/g, '').trim(); }
+    const NUMBER = /^-?\d+(\.\d+)?$/;
     function check(silent) {
       const raw = norm(inp.value);
       if (raw === '') { if (!silent) { out.textContent = 'Впиши ответ'; out.className = 'verdict'; } return false; }
       const v = Number(raw);
-      const ok = isFinite(v) && Math.abs(v - opts.answer) <= tol;
+      const ok = NUMBER.test(raw) && isFinite(v) && Math.abs(v - opts.answer) <= tol;
       inp.classList.toggle('ok', ok); inp.classList.toggle('bad', !ok);
       out.className = 'verdict ' + (ok ? 'ok' : 'bad');
       out.textContent = ok ? (opts.okText || 'Верно!') : (opts.badText || 'Пока нет. Попробуй ещё раз');

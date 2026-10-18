@@ -38,7 +38,7 @@
       role: o.interactive ? 'slider' : 'img', 'aria-label': o.label,
       tabindex: o.interactive ? 0 : null,
       'aria-valuemin': o.interactive ? o.min : null, 'aria-valuemax': o.interactive ? o.max : null,
-      style: 'width:100%;height:auto;display:block;touch-action:none;overflow:visible'
+      style: 'width:100%;height:auto;display:block;overflow:visible' + (o.interactive ? ';touch-action:none' : '')
     });
 
     // зона «куда округлится»
@@ -100,8 +100,13 @@
       const tx = x(t);
       target.setAttribute('cx', tx);
       // зона — все числа, которые при этом способе округляются сюда же
-      const band = mode === 'up' ? [t - 1, t] : mode === 'down' ? [t, t + 1] : [t - 0.5, t + 0.5];
-      const z0 = x(clamp(band[0], o.min, o.max)), z1 = x(clamp(band[1], o.min, o.max));
+      // открытый край чуть поджимаем: 4 округляется вверх в 4, а не в 5
+      const EPS = 0.06;
+      const band = mode === 'up' ? [t - 1 + EPS, t]
+        : mode === 'down' ? [t, t + 1 - EPS]
+        : [t - 0.5, t + 0.5 - EPS];
+      let z0 = x(clamp(Math.min(band[0], t - 0.12), o.min, o.max));
+      let z1 = x(clamp(Math.max(band[1], t + 0.12), o.min, o.max));
       zone.setAttribute('x', z0);
       zone.setAttribute('width', Math.max(0, z1 - z0));
       const lift = axis - (o.compact ? 26 : 32);

@@ -1,5 +1,5 @@
 /* Раздел «Столбик и уголок» */
-.board{--cw:40px;--ch:46px;display:flex;align-items:flex-start;justify-content:center;gap:0;
+.board{--cw:44px;--ch:48px;display:flex;align-items:flex-start;justify-content:center;gap:0;
   font-variant-numeric:tabular-nums;user-select:none;margin:10px 0}
 @media (max-width:620px){.board{--cw:32px;--ch:40px}}
 .board .left{display:flex;flex-direction:column}
@@ -14,7 +14,8 @@
 .bcell.bring{color:var(--accent)}
 .bcell.hl{background:var(--accent-soft);border-radius:8px}
 .bcell.src{background:var(--ok-soft);border-radius:8px}
-.bcell input{width:calc(var(--cw) - 6px);height:calc(var(--ch) - 8px);min-height:0;padding:0;
+.bcell input{width:calc(var(--cw) - 2px);height:calc(var(--ch) - 2px);min-height:0;padding:0;
+  -webkit-user-select:text;user-select:text;
   font-size:26px;font-weight:700;text-align:center;border:2px dashed var(--line);border-radius:10px;
   background:transparent;color:var(--ink)}
 .brow.small .bcell input{height:22px;font-size:15px;color:var(--warn)}

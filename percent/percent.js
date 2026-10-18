@@ -485,7 +485,7 @@
   const score = $('#score');
   function updScore() {
     const total = TASK_IDS.length;
-    const done = Progress.countDone('pct/');
+    const done = Progress.countDone('pct/', TASK_IDS);
     if (!total) { score.style.display = 'none'; return; }
     score.textContent = 'Решено ' + done + ' из ' + total;
     score.classList.toggle('ok', done >= total);

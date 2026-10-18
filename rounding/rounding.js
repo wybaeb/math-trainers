@@ -13,7 +13,7 @@
       min: 4, max: 8, value: 5.5, step: 0.1, interactive: true, mode,
       label: 'Число на полоске', onChange: () => sync()
     });
-    const out = el('div', { class: 'verdict-big' });
+    const out = el('div', { class: 'verdict-big', role: 'status', 'aria-live': 'polite' });
     const why = el('div', { class: 'why' });
 
     const MODES = [
@@ -88,11 +88,12 @@
       label: 'Где стоит число ' + fmt(v)
     });
 
-    const inp = el('input', { type: 'text', inputmode: 'numeric', placeholder: '?', 'aria-label': 'Ответ' });
+    const qid = 'q-' + cfg.id.replace(/\W+/g, '-');
+    const inp = el('input', { type: 'text', inputmode: 'numeric', placeholder: '?', 'aria-labelledby': qid });
     const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
-    const verdict = el('div', { class: 'verdict' });
+    const verdict = el('div', { class: 'verdict', role: 'status', 'aria-live': 'polite' });
 
-    row.appendChild(el('div', { class: 'q', text: cfg.prompt }));
+    row.appendChild(el('div', { class: 'q', id: qid, text: cfg.prompt }));
     row.appendChild(el('div', { class: 'line-wrap' }, [line.node]));
     row.appendChild(el('div', { class: 'answer' }, [inp, btn]));
     row.appendChild(verdict);
@@ -162,10 +163,11 @@
       const line = NumberLine.create({ min: lo, max: hi, value: q, mode: 'nearest', compact: true,
         showTarget: false, label: 'Где стоит частное' });
 
-      const inp = el('input', { type: 'text', inputmode: 'numeric', placeholder: '?', 'aria-label': 'Ответ' });
+      const qid = 'q-' + id.replace(/\W+/g, '-');
+      const inp = el('input', { type: 'text', inputmode: 'numeric', placeholder: '?', 'aria-labelledby': qid });
       const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
       const peek = el('button', { class: 'btn quiet small', type: 'button', text: '👀 Показать полоску' });
-      const verdict = el('div', { class: 'verdict' });
+      const verdict = el('div', { class: 'verdict', role: 'status', 'aria-live': 'polite' });
       const lineWrap = el('div', { class: 'line-wrap', style: 'display:none' }, [line.node]);
 
       peek.addEventListener('click', () => {
@@ -174,7 +176,7 @@
         peek.textContent = on ? '🙈 Спрятать полоску' : '👀 Показать полоску';
       });
 
-      row.appendChild(el('div', { class: 'q', text: d[0] + ' ÷ ' + d[1] + ' = ? (до целого)' }));
+      row.appendChild(el('div', { class: 'q', id: qid, text: d[0] + ' ÷ ' + d[1] + ' = ? (до целого)' }));
       row.appendChild(el('div', { class: 'center', style: 'margin:8px 0' }, [peek]));
       row.appendChild(lineWrap);
       row.appendChild(el('div', { class: 'answer' }, [inp, btn]));
@@ -184,7 +186,7 @@
       const exact = Math.abs(q - Math.round(q * 100) / 100) < 1e-9;
       UI.checker({
         id, answer, input: inp, button: btn, verdict,
-        okText: 'Верно: ' + d[0] + ' ÷ ' + d[1] + ' = ' + (exact ? '' : '≈ ') + fmt(q) + ' → ' + answer,
+        okText: 'Верно: ' + d[0] + ' ÷ ' + d[1] + ' ' + (exact ? '=' : '≈') + ' ' + fmt(q) + ' → ' + answer,
         onSolved() { lineWrap.style.display = ''; peek.textContent = '🙈 Спрятать полоску'; line.reveal(true); UI.pulse(row); }
       });
       if (Progress.isDone(id)) {
@@ -205,7 +207,7 @@
   function updScore() {
     const total = TASK_IDS.length;
     if (!total) { score.style.display = 'none'; return; }
-    score.textContent = 'Решено ' + Progress.countDone('rnd/') + ' из ' + total;
+    score.textContent = 'Решено ' + Progress.countDone('rnd/', TASK_IDS) + ' из ' + total;
   }
   addEventListener('progress', updScore); updScore();
 })();
