@@ -111,31 +111,36 @@
 
 
   /* ======= общий конструктор примера с процентами и диаграммами ======= */
-  /** cfg: {id, a, op:'+'|'−', b, reveal:'always'|'button'|'none', size} */
+  /** cfg: {id, a, op:'+'|'−'|'×'|'÷', b, reveal:'always'|'button'|'none', size}
+   *  для '+' и '−' b — тоже проценты; для '×' и '÷' b — обычное число. */
   function percentExample(cfg) {
     const a = cfg.a, b = cfg.b, op = cfg.op;
-    const answer = op === '+' ? a + b : a - b;
+    const scalar = op === '×' || op === '÷';
+    const answer = op === '+' ? a + b : op === '−' ? a - b : op === '×' ? a * b : a / b;
     const size = cfg.size || 124;
     const wrap = el('div', { class: 'ex' });
 
     const pieA = Pie.create({ size, value: a, center: a + '%', tickLabels: false, label: a + ' процентов' });
-    const pieB = Pie.create({ size, value: b, center: b + '%', tickLabels: false, label: b + ' процентов' });
+    const pieB = scalar ? null
+      : Pie.create({ size, value: b, center: b + '%', tickLabels: false, label: b + ' процентов' });
     const pieR = Pie.create({ size, value: answer, center: '', tickLabels: false,
       color: 'var(--ok)', label: 'Диаграмма ответа' });
+    const capR = el('div', { class: 'cap', text: 'сколько?' });
 
     const pies = el('div', { class: 'pies' }, [
       el('div', { class: 'pie-box' }, [pieA.node]),
-      el('div', { class: 'op', text: op }),
-      el('div', { class: 'pie-box' }, [pieB.node]),
+      el('div', { class: 'op', text: scalar ? op + ' ' + b : op }),
+      scalar ? el('span') : el('div', { class: 'pie-box' }, [pieB.node]),
       el('div', { class: 'op', text: '=' }),
-      el('div', { class: 'pie-box' }, [pieR.node, el('div', { class: 'cap', text: 'сколько?' })])
+      el('div', { class: 'pie-box' }, [pieR.node, capR])
     ]);
 
     const inp = el('input', { type: 'number', inputmode: 'decimal', 'aria-label': 'Ответ в процентах', placeholder: '?' });
     const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
     const verdict = el('div', { class: 'verdict' });
 
-    wrap.appendChild(el('div', { class: 'expr', text: a + '% ' + op + ' ' + b + '% = ?' }));
+    const exprText = a + '% ' + op + ' ' + b + (scalar ? '' : '%') + ' = ?';
+    wrap.appendChild(el('div', { class: 'expr', text: exprText }));
 
     let peekBtn = null;
     if (cfg.reveal === 'button') {
@@ -156,10 +161,10 @@
 
     UI.checker({
       id: cfg.id, answer, tolerance: 1e-9, input: inp, button: btn, verdict,
-      okText: 'Верно! ' + a + '% ' + op + ' ' + b + '% = ' + answer + '%',
+      okText: 'Верно! ' + exprText.replace('?', UI.num(answer) + '%'),
       onSolved() {
-        pieR.setCenter(answer + '%');
-        pieR.setColor('var(--ok)');
+        pieR.setCenter(UI.num(answer) + '%');
+        capR.textContent = 'ответ';
         if (cfg.reveal === 'button' && !pies.classList.contains('show')) {
           pies.classList.add('show');
           peekBtn.textContent = '🙈 Спрятать диаграммы';
@@ -169,7 +174,7 @@
     });
 
     if (Progress.isDone(cfg.id)) {
-      inp.value = answer; inp.classList.add('ok'); pieR.setCenter(answer + '%');
+      inp.value = answer; inp.classList.add('ok'); pieR.setCenter(UI.num(answer) + '%'); capR.textContent = 'ответ';
       verdict.className = 'verdict ok'; verdict.textContent = 'Решено';
       if (cfg.reveal === 'button') pies.classList.add('show');
     }
@@ -200,11 +205,35 @@
     host.appendChild(box);
   }
 
+
+  /* ================= Уровень 4 — то же, но диаграммы спрятаны ================= */
+  const HIDDEN = [
+    { a: 45, op: '+', b: 30 },
+    { a: 80, op: '−', b: 35 },
+    { a: 60, op: '÷', b: 2 },
+    { a: 25, op: '×', b: 3 },
+    { a: 90, op: '÷', b: 3 },
+    { a: 12, op: '×', b: 5 }
+  ];
+
+  function buildHidden(host) {
+    host.appendChild(el('div', { class: 'card' }, [
+      el('h2', { text: 'Теперь без подсказок', style: 'margin-top:0' }),
+      el('p', { class: 'muted', text: 'Считай числами в уме или на бумаге. Диаграммы спрятаны — их можно открыть кнопкой «Подсмотреть», если застрял.' })
+    ]));
+    const box = el('div', { class: 'card' });
+    HIDDEN.forEach((t, i) => box.appendChild(percentExample({
+      id: task('pct/l4-' + i), a: t.a, op: t.op, b: t.b, reveal: 'button'
+    })));
+    host.appendChild(box);
+  }
+
   /* ================= сборка страницы ================= */
   const L = {
     lvl1: buildSandbox,
     lvl2: buildSetPercent,
-    lvl3: buildAddSubHinted
+    lvl3: buildAddSubHinted,
+    lvl4: buildHidden
   };
   Object.keys(L).forEach(id => { const n = document.getElementById(id); if (n) L[id](n); });
   UI.levels();
