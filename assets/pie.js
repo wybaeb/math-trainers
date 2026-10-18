@@ -49,9 +49,9 @@
   function create(options) {
     const o = Object.assign({}, DEFAULTS, options || {});
     const S = o.size, cx = S / 2, cy = S / 2;
-    const r = S * 0.37;              // радиус пирога
+    const r = S * 0.335;            // радиус пирога
     const rTick = r + S * 0.035;     // засечки снаружи
-    const rText = r + S * 0.105;
+    const rText = r + S * 0.1;
 
     const svg = mk('svg', {
       viewBox: `0 0 ${S} ${S}`, width: S, height: S,
@@ -186,11 +186,14 @@
         if (a < 0) a += TAU;
         return a / TAU * 100;
       };
-      function apply(e) {
+      function apply(e, fresh) {
         let v = raw(e);
-        // не перескакивать через 0/100: держим край, пока палец не вернётся
-        const d = v - value;
-        if (d > 50) v = 0; else if (d < -50) v = 100;
+        // во время ведения не перескакиваем через 0/100: держим край, пока палец не вернётся.
+        // при первом касании так не делаем — палец ставят туда, куда хотят.
+        if (!fresh) {
+          const d = v - value;
+          if (d > 50) v = 0; else if (d < -50) v = 100;
+        }
         const snapped = snap(v);
         if (snapped !== lastSnapped && snapped !== v) {
           lastSnapped = snapped;
@@ -198,7 +201,7 @@
         }
         set(snapped);
       }
-      const start = e => { dragging = true; svg.classList.add('dragging'); apply(e.e || e); };
+      const start = e => { dragging = true; svg.classList.add('dragging'); apply(e, true); };
       svg.addEventListener('pointerdown', e => {
         svg.setPointerCapture(e.pointerId); e.preventDefault(); start(e);
       });

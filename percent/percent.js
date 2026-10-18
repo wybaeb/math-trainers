@@ -7,7 +7,8 @@
   function buildSandbox(host) {
     const pie = Pie.create({
       size: 300, value: 25, interactive: true, snapStep: 5, snapTol: 2.2,
-      label: 'Диаграмма: доля круга в процентах'
+      label: 'Диаграмма: доля круга в процентах',
+      onChange: v => set(v, 'pie')
     });
 
     const slider = el('input', { type: 'range', min: 0, max: 100, step: 1, value: 25,
@@ -34,21 +35,13 @@
       return 'Закрашено <b>' + num(v) + '%</b>, а осталось ' + num(100 - v) + '%.';
     }
     function set(v, from) {
-      pie.set(v);
-      if (from !== 'slider') slider.value = v;
-      readout.innerHTML = words(Math.round(v * 10) / 10);
-      qbtns.forEach((b, i) => b.classList.toggle('on', QUICK[i] === Math.round(v)));
+      if (from !== 'pie') pie.set(v, { silent: true });
+      if (from !== 'slider') slider.value = Math.round(pie.get());
+      const cur = pie.get();
+      readout.innerHTML = words(Math.round(cur * 10) / 10);
+      qbtns.forEach((b, i) => b.classList.toggle('on', QUICK[i] === Math.round(cur)));
     }
-    pie.node.addEventListener('pointerup', () => set(pie.get()));
-    const origChange = v => set(v, 'pie');
-    pie.set(25);
     slider.addEventListener('input', () => set(+slider.value, 'slider'));
-
-    // диаграмма дергает readout на каждом изменении
-    const observer = () => set(pie.get(), 'pie');
-    pie.node.addEventListener('pointermove', observer);
-    pie.node.addEventListener('pointerdown', observer);
-    pie.node.addEventListener('keydown', () => setTimeout(observer, 0));
 
     host.appendChild(el('div', { class: 'card' }, [
       el('h2', { text: 'Весь круг — это 100%', style: 'margin-top:0' }),
