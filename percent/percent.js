@@ -69,9 +69,11 @@
     TASKS.forEach((target, i) => {
       const id = task('pct/l2-' + target);
       const cell = el('div', { class: 'task-cell' });
+      let solved = false;
       const pie = Pie.create({
         size: 230, value: 0, interactive: true, snapStep: 5, snapTol: 2.2,
-        center: '', tickLabels: false, label: 'Поставь ' + target + ' процентов'
+        center: '', tickLabels: false, label: 'Поставь ' + target + ' процентов',
+        onChange: v => { if (solved) pie.setCenter(UI.num(v) + '%'); }
       });
       const verdict = el('div', { class: 'verdict' });
       const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
@@ -79,7 +81,8 @@
       function check() {
         const v = pie.get();
         const ok = Math.abs(v - target) < 0.51;
-        cell.classList.toggle('solved', ok);
+        if (ok) solved = true;
+        cell.classList.toggle('solved', solved);
         verdict.className = 'verdict ' + (ok ? 'ok' : 'bad');
         if (ok) {
           pie.setCenter(target + '%');
@@ -87,7 +90,7 @@
           Progress.done(id);
           UI.pulse(cell);
         } else {
-          pie.setCenter('');
+          pie.setCenter(solved ? UI.num(v) + '%' : '');
           verdict.textContent = v < target ? 'Пока мало — поверни дальше' : 'Перебор — поверни назад';
         }
       }
@@ -99,7 +102,7 @@
       cell.appendChild(verdict);
       grid.appendChild(cell);
 
-      if (Progress.isDone(id)) { pie.set(target); pie.setCenter(target + '%'); cell.classList.add('solved'); }
+      if (Progress.isDone(id)) { solved = true; pie.set(target); pie.setCenter(target + '%'); cell.classList.add('solved'); }
     });
 
     host.appendChild(el('div', { class: 'card' }, [
@@ -111,7 +114,7 @@
 
 
   /* ======= общий конструктор примера с процентами и диаграммами ======= */
-  /** cfg: {id, a, op:'+'|'−'|'×'|'÷', b, reveal:'always'|'button'|'none', size}
+  /** cfg: {id, a, op:'+'|'−'|'×'|'÷', b, reveal:'always'|'button', size}
    *  для '+' и '−' b — тоже проценты; для '×' и '÷' b — обычное число. */
   function percentExample(cfg) {
     const a = cfg.a, b = cfg.b, op = cfg.op;
@@ -135,7 +138,7 @@
       el('div', { class: 'pie-box' }, [pieR.node, capR])
     ]);
 
-    const inp = el('input', { type: 'number', inputmode: 'decimal', 'aria-label': 'Ответ в процентах', placeholder: '?' });
+    const inp = el('input', { type: 'text', inputmode: 'decimal', 'aria-label': 'Ответ в процентах', placeholder: '?' });
     const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
     const verdict = el('div', { class: 'verdict' });
 
@@ -152,7 +155,7 @@
       });
       wrap.appendChild(peekBtn);
     }
-    if (cfg.reveal !== 'none') wrap.appendChild(pies);
+    wrap.appendChild(pies);
 
     wrap.appendChild(el('div', { class: 'answer' }, [
       el('span', { class: 'muted', text: 'Ответ:' }), inp, el('span', { text: '%' }), btn
@@ -267,16 +270,18 @@
       const k = Math.round(exact);
       basketRow.set(k);
       const whole = Math.abs(exact - k) < 1e-9;
-      result.innerHTML = '<b>' + UI.num(pct) + '%</b> от <b>' + total + '</b> ' + UI.apples(total) +
+      result.innerHTML = '<b>' + UI.num(pct) + '%</b> от <b>' + total + '</b> ' + UI.applesGen(total) +
         ' = <b>' + UI.num(exact) + '</b> ' + UI.apples(k) +
         (whole ? '' : ' <span class="muted">(ровно не делится — подсвечено ' + k + ')</span>') +
         '<div class="muted" style="margin-top:4px">' + total + ' ÷ 100 × ' + UI.num(pct) + ' = ' + UI.num(exact) + '</div>';
     }
     pctSlider.addEventListener('input', () => { pct = +pctSlider.value; sync('slider'); });
-    totalInput.addEventListener('input', () => {
-      total = UI.clamp(Math.round(+totalInput.value || 1), 1, 100);
-      rebuildBasket(); sync('total');
-    });
+    function readTotal() {
+      const raw = Math.round(+totalInput.value);
+      return UI.clamp(isFinite(raw) && raw > 0 ? raw : 1, 1, 100);
+    }
+    totalInput.addEventListener('input', () => { total = readTotal(); rebuildBasket(); sync('total'); });
+    totalInput.addEventListener('change', () => { totalInput.value = total = readTotal(); rebuildBasket(); sync('total'); });
 
     host.appendChild(el('div', { class: 'card' }, [
       el('h2', { text: 'Процент от числа', style: 'margin-top:0' }),
@@ -306,11 +311,11 @@
       const row = el('div', { class: 'ex' });
       const pieT = Pie.create({ size: 110, value: t.p, center: t.p + '%', tickLabels: false, label: t.p + ' процентов' });
       const ap = applesRow(t.n, 0);
-      const inp = el('input', { type: 'number', inputmode: 'numeric', placeholder: '?', 'aria-label': 'Сколько яблок' });
+      const inp = el('input', { type: 'text', inputmode: 'numeric', placeholder: '?', 'aria-label': 'Сколько яблок' });
       const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
       const verdict = el('div', { class: 'verdict' });
 
-      row.appendChild(el('div', { class: 'expr', text: t.p + '% от ' + t.n + ' ' + UI.apples(t.n) + ' = ?' }));
+      row.appendChild(el('div', { class: 'expr', text: t.p + '% от ' + t.n + ' ' + UI.applesGen(t.n) + ' = ?' }));
       row.appendChild(el('div', { class: 'pies' }, [pieT.node]));
       row.appendChild(ap.node);
       row.appendChild(el('div', { class: 'answer' }, [inp, el('span', { class: 'muted', text: 'шт.' }), btn]));
@@ -372,7 +377,7 @@
     }
     wrap.appendChild(pies);
 
-    const inp = el('input', { type: 'number', inputmode: 'decimal', placeholder: '?', 'aria-label': 'Ответ в процентах' });
+    const inp = el('input', { type: 'text', inputmode: 'decimal', placeholder: '?', 'aria-label': 'Ответ в процентах' });
     const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
     const verdict = el('div', { class: 'verdict' });
     wrap.appendChild(el('div', { class: 'answer' }, [el('span', { class: 'muted', text: 'Ответ:' }), inp, el('span', { text: '%' }), btn]));
@@ -407,14 +412,16 @@
     const out = el('div', { class: 'readout center' });
 
     function sync() {
-      const res = Math.round(inner * outer) / 100;
+      const exact = inner * outer / 100;
+      const res = Math.round(exact * 100) / 100;
+      const approx = Math.abs(exact - res) > 1e-9;
       pieMix.setSegments([
         { v: res, color: 'var(--ok)' },
         { v: outer - res, color: 'var(--pie)', opacity: .45 }
       ]);
       pieMix.setCenter(UI.num(res) + '%');
-      out.innerHTML = '<b>' + UI.num(inner) + '%</b> от <b>' + UI.num(outer) + '%</b> = <b>' + UI.num(res) + '%</b>' +
-        '<div class="muted">' + UI.num(inner) + ' ÷ 100 × ' + UI.num(outer) + ' = ' + UI.num(res) + '</div>';
+      out.innerHTML = '<b>' + UI.num(inner) + '%</b> от <b>' + UI.num(outer) + '%</b> ' + (approx ? '≈' : '=') + ' <b>' + UI.num(res) + '%</b>' +
+        '<div class="muted">' + UI.num(inner) + ' ÷ 100 × ' + UI.num(outer) + ' ' + (approx ? '≈' : '=') + ' ' + UI.num(res) + '</div>';
     }
 
     host.appendChild(el('div', { class: 'card' }, [

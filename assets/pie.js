@@ -148,8 +148,10 @@
           ? (Math.round(value * 10) / 10).toString().replace('.', ',') + '%'
           : o.center;
       }
-      svg.setAttribute('aria-valuenow', Math.round(value));
-      svg.setAttribute('aria-valuetext', Math.round(value) + '%');
+      if (o.interactive) {
+        svg.setAttribute('aria-valuenow', Math.round(value));
+        svg.setAttribute('aria-valuetext', Math.round(value) + '%');
+      }
     }
 
     function snap(v) {
@@ -202,18 +204,32 @@
         set(snapped);
       }
       const start = e => { dragging = true; svg.classList.add('dragging'); apply(e, true); };
+      let captured = false;
       svg.addEventListener('pointerdown', e => {
-        svg.setPointerCapture(e.pointerId); e.preventDefault(); start(e);
+        // в Safari захват указателя на SVG иногда бросает — тогда ведём палец через document
+        try { svg.setPointerCapture(e.pointerId); captured = true; } catch (err) { captured = false; }
+        e.preventDefault(); start(e);
       });
-      svg.addEventListener('pointermove', e => { if (dragging) { e.preventDefault(); apply(e); } });
+      const onMove = e => { if (dragging) { e.preventDefault(); apply(e); } };
+      svg.addEventListener('pointermove', onMove);
       const stop = e => {
         if (!dragging) return;
         dragging = false; lastSnapped = null; svg.classList.remove('dragging');
-        try { svg.releasePointerCapture(e.pointerId); } catch (err) {}
+        if (captured) { try { svg.releasePointerCapture(e.pointerId); } catch (err) {} }
+        captured = false;
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', stop);
+        document.removeEventListener('pointercancel', stop);
         if (o.onCommit) o.onCommit(value);
       };
       svg.addEventListener('pointerup', stop);
       svg.addEventListener('pointercancel', stop);
+      // страховка: палец мог уехать за круг или захват не встал
+      svg.addEventListener('pointerdown', () => {
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', stop);
+        document.addEventListener('pointercancel', stop);
+      });
       svg.addEventListener('keydown', e => {
         const step = e.shiftKey ? 1 : (o.snapStep || 1);
         if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { set(clamp(value + step, 0, 100)); e.preventDefault(); }

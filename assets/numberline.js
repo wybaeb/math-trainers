@@ -37,7 +37,7 @@
       viewBox: `0 0 ${W} ${H}`, class: 'nline nodrag' + (o.interactive ? ' interactive' : ''),
       role: o.interactive ? 'slider' : 'img', 'aria-label': o.label,
       tabindex: o.interactive ? 0 : null,
-      'aria-valuemin': o.min, 'aria-valuemax': o.max,
+      'aria-valuemin': o.interactive ? o.min : null, 'aria-valuemax': o.interactive ? o.max : null,
       style: 'width:100%;height:auto;display:block;touch-action:none;overflow:visible'
     });
 
@@ -113,8 +113,10 @@
         intTicks[k].setAttribute('fill', on ? 'var(--ok)' : 'var(--ink-soft)');
         intTicks[k].setAttribute('font-size', (on ? (o.compact ? 19 : 21) : (o.compact ? 16 : 18)));
       });
-      svg.setAttribute('aria-valuenow', value);
-      svg.setAttribute('aria-valuetext', fmt(value));
+      if (o.interactive) {
+        svg.setAttribute('aria-valuenow', value);
+        svg.setAttribute('aria-valuetext', fmt(value));
+      }
     }
 
     function set(v, silent) {
@@ -132,16 +134,26 @@
         const px = (e.clientX - b.left) / b.width * W;
         return o.min + (px - PAD) / (W - 2 * PAD) * (o.max - o.min);
       };
-      let dragging = false;
-      svg.addEventListener('pointerdown', e => {
-        dragging = true; svg.setPointerCapture(e.pointerId); e.preventDefault(); set(vAt(e));
-      });
-      svg.addEventListener('pointermove', e => { if (dragging) { e.preventDefault(); set(vAt(e)); } });
+      let dragging = false, captured = false;
+      const onMove = e => { if (dragging) { e.preventDefault(); set(vAt(e)); } };
       const stop = e => {
         if (!dragging) return;
         dragging = false;
-        try { svg.releasePointerCapture(e.pointerId); } catch (err) {}
+        if (captured) { try { svg.releasePointerCapture(e.pointerId); } catch (err) {} }
+        captured = false;
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', stop);
+        document.removeEventListener('pointercancel', stop);
       };
+      svg.addEventListener('pointerdown', e => {
+        dragging = true;
+        try { svg.setPointerCapture(e.pointerId); captured = true; } catch (err) { captured = false; }
+        e.preventDefault(); set(vAt(e));
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', stop);
+        document.addEventListener('pointercancel', stop);
+      });
+      svg.addEventListener('pointermove', onMove);
       svg.addEventListener('pointerup', stop);
       svg.addEventListener('pointercancel', stop);
       svg.addEventListener('keydown', e => {
