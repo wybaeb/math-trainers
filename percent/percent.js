@@ -330,13 +330,137 @@
     host.appendChild(box);
   }
 
+
+  /* ======= пример «процент от процента» ======= */
+  /** cfg: {id, inner, outer, reveal:'always'|'button'} — считаем inner% от outer% */
+  function pctOfPct(cfg) {
+    const inner = cfg.inner, outer = cfg.outer;
+    const answer = Math.round(inner * outer) / 100;
+    const size = cfg.size || 136;
+    const wrap = el('div', { class: 'ex' });
+    const exprText = inner + '% от ' + outer + '% = ?';
+    wrap.appendChild(el('div', { class: 'expr', text: exprText }));
+
+    // наложение: внутри сектора outer выделена доля inner
+    const pieMix = Pie.create({
+      size, value: outer, center: '', tickLabels: false, label: 'Доля внутри доли',
+      segments: [
+        { v: answer, color: 'var(--ok)' },
+        { v: outer - answer, color: 'var(--pie)', opacity: .45 }
+      ]
+    });
+    const pieR = Pie.create({ size, value: answer, center: '', tickLabels: false,
+      color: 'var(--ok)', label: 'Диаграмма ответа' });
+    const capR = el('div', { class: 'cap', text: 'сколько?' });
+
+    const pies = el('div', { class: 'pies' }, [
+      el('div', { class: 'pie-box' }, [pieMix.node,
+        el('div', { class: 'cap', text: 'зелёное — это ' + inner + '% от ' + outer + '%' })]),
+      el('div', { class: 'op', text: '=' }),
+      el('div', { class: 'pie-box' }, [pieR.node, capR])
+    ]);
+
+    let peekBtn = null;
+    if (cfg.reveal === 'button') {
+      pies.classList.add('hidden-pies');
+      peekBtn = el('button', { class: 'btn quiet small peek', type: 'button', text: '👀 Подсмотреть диаграммы' });
+      peekBtn.addEventListener('click', () => {
+        const on = pies.classList.toggle('show');
+        peekBtn.textContent = on ? '🙈 Спрятать диаграммы' : '👀 Подсмотреть диаграммы';
+      });
+      wrap.appendChild(peekBtn);
+    }
+    wrap.appendChild(pies);
+
+    const inp = el('input', { type: 'number', inputmode: 'decimal', placeholder: '?', 'aria-label': 'Ответ в процентах' });
+    const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
+    const verdict = el('div', { class: 'verdict' });
+    wrap.appendChild(el('div', { class: 'answer' }, [el('span', { class: 'muted', text: 'Ответ:' }), inp, el('span', { text: '%' }), btn]));
+    wrap.appendChild(verdict);
+
+    UI.checker({
+      id: cfg.id, answer, tolerance: 1e-9, input: inp, button: btn, verdict,
+      okText: 'Верно! ' + inner + '% × ' + outer + '% = ' + UI.num(answer) + '%',
+      badText: 'Пока нет. Подсказка: ' + inner + ' ÷ 100 × ' + outer,
+      onSolved() { pieR.setCenter(UI.num(answer) + '%'); capR.textContent = 'ответ'; UI.pulse(wrap);
+        if (cfg.reveal === 'button' && !pies.classList.contains('show')) {
+          pies.classList.add('show'); peekBtn.textContent = '🙈 Спрятать диаграммы';
+        } }
+    });
+    if (Progress.isDone(cfg.id)) {
+      inp.value = answer; inp.classList.add('ok'); pieR.setCenter(UI.num(answer) + '%'); capR.textContent = 'ответ';
+      verdict.className = 'verdict ok'; verdict.textContent = 'Решено';
+      if (cfg.reveal === 'button') pies.classList.add('show');
+    }
+    return wrap;
+  }
+
+  /* ================= Уровень 6 — процент от процента, с диаграммами ================= */
+  function buildPctOfPct(host) {
+    /* песочница: обе доли крутятся */
+    let outer = 60, inner = 50;
+    const pieO = Pie.create({ size: 200, value: outer, interactive: true, snapStep: 5,
+      label: 'Большая доля', onChange: v => { outer = v; sync(); } });
+    const pieI = Pie.create({ size: 200, value: inner, interactive: true, snapStep: 5,
+      label: 'Какую часть от неё берём', onChange: v => { inner = v; sync(); } });
+    const pieMix = Pie.create({ size: 200, value: 60, center: '', label: 'Наложение' });
+    const out = el('div', { class: 'readout center' });
+
+    function sync() {
+      const res = Math.round(inner * outer) / 100;
+      pieMix.setSegments([
+        { v: res, color: 'var(--ok)' },
+        { v: outer - res, color: 'var(--pie)', opacity: .45 }
+      ]);
+      pieMix.setCenter(UI.num(res) + '%');
+      out.innerHTML = '<b>' + UI.num(inner) + '%</b> от <b>' + UI.num(outer) + '%</b> = <b>' + UI.num(res) + '%</b>' +
+        '<div class="muted">' + UI.num(inner) + ' ÷ 100 × ' + UI.num(outer) + ' = ' + UI.num(res) + '</div>';
+    }
+
+    host.appendChild(el('div', { class: 'card' }, [
+      el('h2', { text: 'Процент от процента', style: 'margin-top:0' }),
+      el('p', { class: 'muted', text: 'Берём долю не от целого круга, а от уже отрезанного куска. Крути обе диаграммы: слева — какой кусок был, посередине — какую его часть берём, справа — что вышло от целого круга.' }),
+      el('div', { class: 'pie-row' }, [
+        el('div', { class: 'pie-box' }, [pieO.node, el('div', { class: 'cap', text: 'было (от целого)' })]),
+        el('div', { class: 'op', text: '×' }),
+        el('div', { class: 'pie-box' }, [pieI.node, el('div', { class: 'cap', text: 'какую часть берём' })]),
+        el('div', { class: 'op', text: '=' }),
+        el('div', { class: 'pie-box' }, [pieMix.node, el('div', { class: 'cap', text: 'зелёное — результат' })])
+      ]),
+      out
+    ]));
+    sync();
+
+    const box = el('div', { class: 'card' });
+    box.appendChild(el('h3', { text: 'Посчитай сам', style: 'margin-top:0' }));
+    [[50, 60], [25, 80], [10, 50], [50, 50], [75, 40]].forEach((t, i) => {
+      box.appendChild(pctOfPct({ id: task('pct/l6-' + i), inner: t[0], outer: t[1], reveal: 'always' }));
+    });
+    host.appendChild(box);
+  }
+
+  /* ================= Уровень 7 — процент от процента без диаграмм ================= */
+  function buildPctOfPctHidden(host) {
+    host.appendChild(el('div', { class: 'card' }, [
+      el('h2', { text: 'Процент от процента — без диаграмм', style: 'margin-top:0' }),
+      el('p', { class: 'muted', text: 'Правило простое: раздели первый процент на 100 и умножь на второй. Диаграммы откроются кнопкой, если захочется проверить себя.' })
+    ]));
+    const box = el('div', { class: 'card' });
+    [[20, 40], [30, 50], [25, 60], [10, 90], [40, 50]].forEach((t, i) => {
+      box.appendChild(pctOfPct({ id: task('pct/l7-' + i), inner: t[0], outer: t[1], reveal: 'button' }));
+    });
+    host.appendChild(box);
+  }
+
   /* ================= сборка страницы ================= */
   const L = {
     lvl1: buildSandbox,
     lvl2: buildSetPercent,
     lvl3: buildAddSubHinted,
     lvl4: buildHidden,
-    lvl5: buildApples
+    lvl5: buildApples,
+    lvl6: buildPctOfPct,
+    lvl7: buildPctOfPctHidden
   };
   Object.keys(L).forEach(id => { const n = document.getElementById(id); if (n) L[id](n); });
   UI.levels();
