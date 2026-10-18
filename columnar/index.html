@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Столбик и уголок — тренажёр</title>
+<link rel="stylesheet" href="../assets/app.css">
+<link rel="stylesheet" href="columnar.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="../">← Темы</a>
+    <div class="spacer"></div>
+    <span class="pill" id="score">0 / 0</span>
+  </div>
+
+  <h1>Столбик и уголок</h1>
+
+  <div class="levels" role="tablist">
+    <button type="button">1 · Умножение: мультфильм</button>
+    <button type="button">2 · Умножение: тренажёр</button>
+    <button type="button">3 · Деление: мультфильм</button>
+    <button type="button">4 · Деление: тренажёр</button>
+  </div>
+
+  <section class="level" id="lvl1"></section>
+  <section class="level" id="lvl2"></section>
+  <section class="level" id="lvl3"></section>
+  <section class="level" id="lvl4"></section>
+
+  <div class="foot">Двигай бегунок шагов — мультфильм расскажет и покажет каждый шаг</div>
+</div>
+<script src="../assets/ui.js"></script>
+<script src="../assets/longmath.js"></script>
+<script src="columnar.js"></script>
+</body>
+</html>
