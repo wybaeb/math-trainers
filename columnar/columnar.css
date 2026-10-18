@@ -1,0 +1,40 @@
+/* Раздел «Столбик и уголок» */
+.board{--cw:40px;--ch:46px;display:flex;align-items:flex-start;justify-content:center;gap:0;
+  font-variant-numeric:tabular-nums;user-select:none;margin:10px 0}
+@media (max-width:620px){.board{--cw:32px;--ch:40px}}
+.board .left{display:flex;flex-direction:column}
+.brow{display:flex;height:var(--ch)}
+.brow.small{height:24px}
+.bcell{width:var(--cw);display:flex;align-items:center;justify-content:center;
+  font-size:30px;font-weight:650;line-height:1}
+.brow.small .bcell{font-size:16px;color:var(--warn);font-weight:700}
+.bcell.lt{border-top:3px solid var(--ink)}
+.bcell .ph{opacity:0}
+.bcell.sign{color:var(--ink-soft)}
+.bcell.bring{color:var(--accent)}
+.bcell.hl{background:var(--accent-soft);border-radius:8px}
+.bcell.src{background:var(--ok-soft);border-radius:8px}
+.bcell input{width:calc(var(--cw) - 6px);height:calc(var(--ch) - 8px);min-height:0;padding:0;
+  font-size:26px;font-weight:700;text-align:center;border:2px dashed var(--line);border-radius:10px;
+  background:transparent;color:var(--ink)}
+.brow.small .bcell input{height:22px;font-size:15px;color:var(--warn)}
+.bcell input:disabled{border-color:transparent;-webkit-text-fill-color:var(--ink);opacity:1}
+.bcell input.cur{border-style:solid;border-color:var(--accent);background:var(--accent-soft)}
+.bcell input.ok{border-color:transparent;-webkit-text-fill-color:var(--ink)}
+.bcell input.bad{border-color:var(--bad);background:var(--bad-soft);animation:shake .25s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.board .right{display:flex;flex-direction:column;border-left:3px solid var(--ink);padding-left:6px;margin-left:2px}
+.board .right .qline{border-top:3px solid var(--ink)}
+.movie-ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.movie-ctl input[type=range]{flex:1 1 220px;min-width:180px}
+.say{min-height:58px;background:var(--accent-soft);border-radius:14px;padding:12px 16px;
+  font-size:18px;line-height:1.4;margin-top:10px;text-align:center}
+.say.done{background:var(--ok-soft);color:var(--ok);font-weight:650}
+.examples{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:6px}
+.examples button{min-height:42px;padding:0 14px;border-radius:12px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);font-weight:650;cursor:pointer;font-variant-numeric:tabular-nums}
+.examples button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.pcard{border-top:1px solid var(--line);padding:18px 0}
+.pcard:first-of-type{border-top:0}
+.pcard .title{font-size:21px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
+.pcard .ctl{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:6px}
