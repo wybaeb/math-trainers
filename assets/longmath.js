@@ -98,34 +98,112 @@
       }
     }
 
-    if (multiRow) {
-      const si = m.steps.length;
-      carryCells.forEach(c => { c.until = si; });
-      carryCells = [];
-      const plus = put('p' + (B.length - 1), cols - 1 - (A.length + B.length - 1) - 1, '+', 'sign', si);
-      m.step('Все кусочки готовы — складываем их столбиком.', [plus]);
+    if (multiRow) addPhase(m, partIds, cols, carryCells, put);
 
-      let carry = 0;
-      for (let col = cols - 1; col >= 0; col--) {
-        const parts = m.cells.filter(c => partIds.indexOf(c.row) >= 0 && c.col === col && c.kind === 'write');
-        if (!parts.length && !carry) { if (col < cols - 1 - (A.length + B.length - 1)) break; else continue; }
-        const nums = parts.map(c => +c.text);
-        const total = nums.reduce((s, x) => s + x, 0) + carry;
-        const dg = total % 10, nc = (total - dg) / 10;
-        const added = [put('sum', col, dg, 'write', m.steps.length)];
-        if (nc) { const c = put('carry2', col - 1, nc, 'carry', m.steps.length); carryCells.push(c); added.push(c); }
-        let say;
-        if (nums.length + (carry ? 1 : 0) < 2) {
-          say = 'В этом столбике только одна цифра — ' + total + '. Так и пишем.';
-        } else {
-          say = (nums.length ? nums.join(' + ') : '0') + (carry ? ' + ' + carry + ' в уме' : '') +
-            ' = ' + total + '. Пишем ' + dg + (nc ? ', ' + nc + ' в уме.' : '.');
-        }
-        m.step(say, added, { focus: { row: 'sum', col } });
-        carry = nc;
+    m.step('Готово: ' + a + ' × ' + b + ' = ' + m.answer + '.', [], { done: true });
+    return m;
+  }
+
+  /** Складываем готовые частичные произведения столбиком. Переносы пишем над чертой,
+   *  а не держим в уме. */
+  function addPhase(m, partIds, cols, carryCells, put) {
+    const si = m.steps.length;
+    carryCells.forEach(c => { c.until = si; });
+
+    // знак «плюс» слева от самой длинной строки-слагаемого
+    let leftMost = cols - 1;
+    m.cells.forEach(c => {
+      if (partIds.indexOf(c.row) >= 0 && c.kind === 'write' && c.col < leftMost) leftMost = c.col;
+    });
+    const plus = put(partIds[partIds.length - 1], Math.max(0, leftMost - 1), '+', 'sign', si);
+    m.step('Все кусочки готовы — складываем их столбиком.', [plus]);
+
+    let carry = 0;
+    const carry2 = [];
+    for (let col = cols - 1; col >= 0; col--) {
+      const parts = m.cells.filter(c => partIds.indexOf(c.row) >= 0 && c.col === col && c.kind === 'write');
+      if (!parts.length && !carry) { if (col < leftMost) break; else continue; }
+      const nums = parts.map(c => +c.text);
+      const total = nums.reduce((s2, x) => s2 + x, 0) + carry;
+      const dg = total % 10, nc = (total - dg) / 10;
+      const added = [put('sum', col, dg, 'write', m.steps.length)];
+      if (nc) { const c = put('carry2', col - 1, nc, 'carry', m.steps.length); carry2.push(c); added.push(c); }
+      let say;
+      if (!nums.length && carry) {
+        say = 'Здесь остался только перенос ' + carry + ' — его и пишем.';
+      } else if (nums.length + (carry ? 1 : 0) < 2) {
+        say = 'В этом столбике только одна цифра — ' + total + '. Так и пишем.';
+      } else {
+        say = (nums.length ? nums.join(' + ') : '0') + (carry ? ' + ' + carry + ' сверху' : '') +
+          ' = ' + total + '. Пишем ' + dg + (nc ? ', а ' + nc + ' надписываем над следующим столбиком.' : '.');
+      }
+      m.step(say, added, { focus: { row: 'sum', col } });
+      carry = nc;
+    }
+  }
+
+  /* ================= умножение через сложение (частичные произведения) ================= */
+  /** Каждую цифру умножаем на каждую, результат записываем отдельной строкой со сдвигом,
+   *  потом складываем всё столбиком. В уме держать нечего. */
+  function multiplyBySum(a, b) {
+    const A = String(a), B = String(b);
+    const m = model('mul');
+    m.method = 'sum';
+    const cols = A.length + B.length + 1;
+    m.cols = cols;
+    m.a = a; m.b = b; m.answer = a * b;
+
+    const parts = [];
+    for (let j = 0; j < B.length; j++) {
+      for (let i = 0; i < A.length; i++) {
+        parts.push({ i, j, ad: +A[A.length - 1 - i], bd: +B[B.length - 1 - j] });
       }
     }
+    const multi = parts.length > 1;
+    const partIds = parts.map((p, k) => (multi ? 'pp' + k : 'sum'));
 
+    const rowIds = ['a', 'b'].concat(partIds.filter((id, k) => partIds.indexOf(id) === k));
+    if (multi) rowIds.push('carry2', 'sum');
+    m.rows = rowIds.map(id => ({
+      id,
+      small: id === 'carry2',
+      lineAbove: id === partIds[0] || (multi && id === 'carry2')
+    }));
+
+    const put = (row, col, text, kind, step) => m.put({ row, col, text: String(text), kind, step });
+
+    A.split('').forEach((d, i) => put('a', cols - A.length + i, d, 'given', 0));
+    B.split('').forEach((d, i) => put('b', cols - B.length + i, d, 'given', 0));
+    put('b', cols - B.length - 1, '×', 'sign', 0);
+    m.step('Записываем столбиком. Умножать будем по частям: каждую цифру на каждую, ' +
+      'каждый кусочек запишем отдельной строчкой, а в конце всё сложим — держать в уме ничего не придётся.', []);
+
+    parts.forEach((p, k) => {
+      const prod = p.ad * p.bd;
+      const shift = p.i + p.j;
+      const P = String(prod);
+      const row = partIds[k];
+      const added = [];
+      P.split('').forEach((d, t) => {
+        added.push(put(row, cols - 1 - shift - (P.length - 1 - t), d, 'write', m.steps.length));
+      });
+      const realA = p.ad * Math.pow(10, p.i);
+      const realB = p.bd * Math.pow(10, p.j);
+      let say = p.bd + ' × ' + p.ad + ' = ' + prod + '. ';
+      if (shift === 0) {
+        say += 'Это единицы — пишем ' + prod + ' в самый правый край.';
+      } else {
+        say += 'Но на самом деле это ' + realB + ' × ' + realA + ' = ' + (prod * Math.pow(10, shift)) +
+          ', поэтому ' + prod + ' сдвигаем на ' + shift + ' ' +
+          plural(shift, 'клетку', 'клетки', 'клеток') + ' влево.';
+      }
+      m.step(say, added, {
+        focus: { row, col: cols - 1 - shift },
+        source: [{ row: 'a', col: cols - 1 - p.i }, { row: 'b', col: cols - 1 - p.j }]
+      });
+    });
+
+    if (multi) addPhase(m, partIds, cols, [], put);
     m.step('Готово: ' + a + ' × ' + b + ' = ' + m.answer + '.', [], { done: true });
     return m;
   }
@@ -213,6 +291,6 @@
     return m;
   }
 
-  global.LongMath = { multiply, divide, RANK };
+  global.LongMath = { multiply, multiplyBySum, divide, RANK };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.LongMath;
 })(typeof window !== 'undefined' ? window : globalThis);
