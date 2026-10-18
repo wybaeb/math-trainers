@@ -46,7 +46,7 @@
     m.rows = rowIds.map(id => ({
       id,
       small: id === 'carry' || id === 'carry2',
-      lineAbove: id === partIds[0] || (multiRow && id === 'carry2')
+      lineAbove: id === partIds[0] || (multiRow && id === 'sum')
     }));
 
     const put = (row, col, text, kind, step) => m.put({ row, col, text: String(text), kind, step });
@@ -115,21 +115,26 @@
     m.cells.forEach(c => {
       if (partIds.indexOf(c.row) >= 0 && c.kind === 'write' && c.col < leftMost) leftMost = c.col;
     });
-    const plus = put(partIds[partIds.length - 1], Math.max(0, leftMost - 1), '+', 'sign', si);
-    m.step('Все кусочки готовы — складываем их столбиком.', [plus]);
+    const single = partIds.length < 2;
+    const plus = single ? null
+      : put(partIds[partIds.length - 1], Math.max(0, leftMost - 1), '+', 'sign', si);
+    m.step(single
+      ? 'Кусочек остался один — переносим его в строку ответа, дописав нули пустых разрядов.'
+      : 'Все кусочки готовы — складываем их столбиком.', plus ? [plus] : []);
 
     let carry = 0;
-    const carry2 = [];
     for (let col = cols - 1; col >= 0; col--) {
       const parts = m.cells.filter(c => partIds.indexOf(c.row) >= 0 && c.col === col && c.kind === 'write');
-      if (!parts.length && !carry) { if (col < leftMost) break; else continue; }
+      if (col < leftMost && !carry) break;
       const nums = parts.map(c => +c.text);
       const total = nums.reduce((s2, x) => s2 + x, 0) + carry;
       const dg = total % 10, nc = (total - dg) / 10;
       const added = [put('sum', col, dg, 'write', m.steps.length)];
-      if (nc) { const c = put('carry2', col - 1, nc, 'carry', m.steps.length); carry2.push(c); added.push(c); }
+      if (nc) added.push(put('carry2', col - 1, nc, 'carry', m.steps.length));
       let say;
-      if (!nums.length && carry) {
+      if (!nums.length && !carry) {
+        say = 'В этом разряде складывать нечего — пишем 0.';
+      } else if (!nums.length && carry) {
         say = 'Здесь остался только перенос ' + carry + ' — его и пишем.';
       } else if (nums.length + (carry ? 1 : 0) < 2) {
         say = 'В этом столбике только одна цифра — ' + total + '. Так и пишем.';
@@ -156,18 +161,26 @@
     const parts = [];
     for (let j = 0; j < B.length; j++) {
       for (let i = 0; i < A.length; i++) {
-        parts.push({ i, j, ad: +A[A.length - 1 - i], bd: +B[B.length - 1 - j] });
+        const ad = +A[A.length - 1 - i], bd = +B[B.length - 1 - j];
+        parts.push({ i, j, ad, bd, prod: ad * bd });
       }
     }
-    const multi = parts.length > 1;
-    const partIds = parts.map((p, k) => (multi ? 'pp' + k : 'sum'));
+    // нулевые кусочки строку не занимают: складывать нечего
+    const live = parts.filter(p => p.prod !== 0);
+    // один кусочек без сдвига сам себе ответ; со сдвигом — нужна строка ответа с нулями
+    const multi = live.length > 1 || (live.length === 1 && live[0].i + live[0].j > 0);
+    let k = 0;
+    parts.forEach(p => { p.row = p.prod === 0 ? null : (multi ? 'pp' + (k++) : 'sum'); });
+    const partIds = live.map(p => p.row);
 
-    const rowIds = ['a', 'b'].concat(partIds.filter((id, k) => partIds.indexOf(id) === k));
+    const rowIds = ['a', 'b'].concat(partIds);
     if (multi) rowIds.push('carry2', 'sum');
+    if (!live.length) rowIds.push('sum');
     m.rows = rowIds.map(id => ({
       id,
       small: id === 'carry2',
-      lineAbove: id === partIds[0] || (multi && id === 'carry2')
+      // черта над первой строкой кусочков и над ответом; переносы остаются НАД чертой
+      lineAbove: id === partIds[0] || ((multi || !live.length) && id === 'sum')
     }));
 
     const put = (row, col, text, kind, step) => m.put({ row, col, text: String(text), kind, step });
@@ -178,11 +191,25 @@
     m.step('Записываем столбиком. Умножать будем по частям: каждую цифру на каждую, ' +
       'каждый кусочек запишем отдельной строчкой, а в конце всё сложим — держать в уме ничего не придётся.', []);
 
-    parts.forEach((p, k) => {
-      const prod = p.ad * p.bd;
+    if (!live.length) {
+      const c = put('sum', cols - 1, 0, 'write', m.steps.length);
+      m.step('Один из множителей — ноль, поэтому и всё произведение ноль.', [c],
+        { focus: { row: 'sum', col: cols - 1 } });
+      m.step('Готово: ' + a + ' × ' + b + ' = 0.', [], { done: true });
+      return m;
+    }
+
+    parts.forEach(p => {
+      const prod = p.prod;
       const shift = p.i + p.j;
+      if (!prod) {
+        m.step(p.bd + ' × ' + p.ad + ' = 0. Ноль ничего не прибавит — эту строчку пропускаем.', [], {
+          source: [{ row: 'a', col: cols - 1 - p.i }, { row: 'b', col: cols - 1 - p.j }]
+        });
+        return;
+      }
       const P = String(prod);
-      const row = partIds[k];
+      const row = p.row;
       const added = [];
       P.split('').forEach((d, t) => {
         added.push(put(row, cols - 1 - shift - (P.length - 1 - t), d, 'write', m.steps.length));
