@@ -14,8 +14,8 @@
 .apples{display:flex;flex-wrap:wrap;gap:4px;font-size:26px;line-height:1.1;margin:8px 0;user-select:none}
 .apples span{opacity:.25;transition:opacity .15s ease,transform .15s ease}
 .apples span.on{opacity:1;transform:scale(1.08)}
-.hidden-pies{display:none}
-.hidden-pies.show{display:flex}
+.ex .pies.hidden-pies{display:none}
+.ex .pies.hidden-pies.show{display:flex}
 .task-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(270px,1fr))}
 .task-cell{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;gap:8px}
