@@ -88,7 +88,7 @@
       label: 'Где стоит число ' + fmt(v)
     });
 
-    const inp = el('input', { type: 'number', inputmode: 'numeric', placeholder: '?', 'aria-label': 'Ответ' });
+    const inp = el('input', { type: 'text', inputmode: 'numeric', placeholder: '?', 'aria-label': 'Ответ' });
     const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
     const verdict = el('div', { class: 'verdict' });
 
@@ -162,7 +162,7 @@
       const line = NumberLine.create({ min: lo, max: hi, value: q, mode: 'nearest', compact: true,
         showTarget: false, label: 'Где стоит частное' });
 
-      const inp = el('input', { type: 'number', inputmode: 'numeric', placeholder: '?', 'aria-label': 'Ответ' });
+      const inp = el('input', { type: 'text', inputmode: 'numeric', placeholder: '?', 'aria-label': 'Ответ' });
       const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
       const peek = el('button', { class: 'btn quiet small', type: 'button', text: '👀 Показать полоску' });
       const verdict = el('div', { class: 'verdict' });

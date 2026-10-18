@@ -14,7 +14,6 @@
       const v = attrs[k];
       if (v === null || v === undefined || v === false) continue;
       if (k === 'text') n.textContent = v;
-      else if (k === 'html') n.innerHTML = v;
       else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
       else n.setAttribute(k, v);
     }
@@ -26,13 +25,17 @@
   /* ---------- прогресс в localStorage ---------- */
   const KEY = 'math-trainers/v1';
   function readAll() {
-    try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; }
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY) || '{}');
+      // хранилище общее на весь github.io — доверять форме данных нельзя
+      return (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+    } catch (e) { return {}; }
   }
   function writeAll(obj) {
     try { localStorage.setItem(KEY, JSON.stringify(obj)); } catch (e) { /* приватный режим — просто не сохраняем */ }
   }
   const Progress = {
-    get(id) { return readAll()[id] || null; },
+    get(id) { const v = readAll()[id]; return (v && typeof v === 'object') ? v : null; },
     set(id, val) { const a = readAll(); a[id] = val; writeAll(a); },
     done(id) { this.set(id, { done: true, at: Date.now() }); dispatchEvent(new CustomEvent('progress')); },
     isDone(id) { const v = this.get(id); return !!(v && v.done); },
@@ -41,24 +44,11 @@
       Object.keys(a).forEach(k => { if (!prefix || k.startsWith(prefix)) delete a[k]; });
       writeAll(a); dispatchEvent(new CustomEvent('progress'));
     },
-    countDone(prefix) { return Object.keys(readAll()).filter(k => k.startsWith(prefix) && readAll()[k].done).length; }
+    countDone(prefix) {
+      const a = readAll();
+      return Object.keys(a).filter(k => k.indexOf(prefix) === 0 && a[k] && a[k].done).length;
+    }
   };
-
-  /* ---------- индикатор прогресса ---------- */
-  function progressBar(container, prefix, total, label) {
-    const bar = el('i');
-    const txt = el('span', { text: '' });
-    container.appendChild(el('div', { class: 'progress' }, [
-      el('span', { text: label || 'Решено' }), el('div', { class: 'bar' }, [bar]), txt
-    ]));
-    const upd = () => {
-      const n = Progress.countDone(prefix);
-      bar.style.width = Math.round((n / total) * 100) + '%';
-      txt.textContent = n + ' / ' + total;
-    };
-    addEventListener('progress', upd); upd();
-    return upd;
-  }
 
   /* ---------- вкладки уровней ---------- */
   function levels(host) {
@@ -69,7 +59,7 @@
     function show(i) {
       panes.forEach((p, k) => p.classList.toggle('on', k === i));
       btns.forEach((b, k) => b.setAttribute('aria-current', String(k === i)));
-      try { location.hash = 'l' + (i + 1); } catch (e) {}
+      try { history.replaceState(null, '', '#l' + (i + 1)); } catch (e) { location.hash = 'l' + (i + 1); }
       window.scrollTo({ top: 0, behavior: 'smooth' });
       dispatchEvent(new CustomEvent('levelshown', { detail: { index: i } }));
     }
@@ -107,32 +97,6 @@
     return { check, isSolved: () => solved };
   }
 
-  /* ---------- перетаскивание указателем (мышь + палец + Pencil) ---------- */
-  function drag(node, handlers) {
-    let id = null;
-    const pt = e => ({ x: e.clientX, y: e.clientY, e });
-    node.addEventListener('pointerdown', e => {
-      if (id !== null) return;
-      id = e.pointerId;
-      node.setPointerCapture(id);
-      e.preventDefault();
-      handlers.start && handlers.start(pt(e));
-    });
-    node.addEventListener('pointermove', e => {
-      if (e.pointerId !== id) return;
-      e.preventDefault();
-      handlers.move && handlers.move(pt(e));
-    });
-    const end = e => {
-      if (e.pointerId !== id) return;
-      try { node.releasePointerCapture(id); } catch (err) {}
-      id = null;
-      handlers.end && handlers.end(pt(e));
-    };
-    node.addEventListener('pointerup', end);
-    node.addEventListener('pointercancel', end);
-  }
-
   /* ---------- мелочи ---------- */
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   function plural(n, one, few, many) {
@@ -143,16 +107,13 @@
     return many;
   }
   const apples = n => plural(n, 'яблоко', 'яблока', 'яблок');
+  /** родительный падеж: «от 1 яблока», «от 5 яблок» */
+  const applesGen = n => (Math.abs(n) % 10 === 1 && Math.abs(n) % 100 !== 11) ? 'яблока' : 'яблок';
   /** красивое число: 12.5 → «12,5», 12.0 → «12» */
   function num(v, digits) {
     const d = digits === undefined ? 2 : digits;
     const s = Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v)) : String(Number(v.toFixed(d)));
     return s.replace('.', ',');
-  }
-  function shuffle(a) {
-    const r = a.slice();
-    for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; }
-    return r;
   }
   function pulse(node) {
     node.animate(
@@ -161,5 +122,5 @@
     );
   }
 
-  global.UI = { $, $$, el, Progress, progressBar, levels, checker, drag, clamp, plural, apples, num, shuffle, pulse };
+  global.UI = { $, $$, el, Progress, levels, checker, clamp, plural, apples, applesGen, num, pulse };
 })(window);
