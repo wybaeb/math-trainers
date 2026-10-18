@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Математические тренажёры</title>
+<link rel="stylesheet" href="assets/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📐</text></svg>">
+</head>
+<body>
+<div class="wrap">
+  <h1>Математические тренажёры</h1>
+  <p class="lead">Три темы с интерактивными заданиями. Всё двигается пальцем — сделано для iPad.</p>
+
+  <div class="hub">
+    <a class="tile" href="percent/">
+      <div class="emo">🥧</div>
+      <div class="tt">Проценты</div>
+      <div class="ds">Секторная диаграмма, которую крутишь пальцем. Сложение, вычитание, процент от числа и процент от процента.</div>
+      <div class="pr" data-prefix="pct/" data-total="34"></div>
+    </a>
+    <a class="tile" href="rounding/">
+      <div class="emo">📏</div>
+      <div class="tt">Округление</div>
+      <div class="ds">Полоска с засечками: вверх, вниз и до ближайшего целого. И округление результатов деления.</div>
+      <div class="pr" data-prefix="rnd/" data-total="23"></div>
+    </a>
+    <a class="tile" href="columnar/">
+      <div class="emo">✏️</div>
+      <div class="tt">Столбик и уголок</div>
+      <div class="ds">Пошаговый мультфильм про умножение столбиком и деление уголком, потом тренажёр с подсказчиком.</div>
+      <div class="pr" data-prefix="col/" data-total="8"></div>
+    </a>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Как пользоваться</h3>
+    <p class="muted">Внутри каждой темы сверху есть лента уровней — можно идти по порядку или прыгнуть к нужному.
+    Решённые задания запоминаются в этом браузере, прогресс виден на плитках выше.</p>
+    <div class="row"><button class="btn quiet small" id="reset">Сбросить прогресс</button></div>
+  </div>
+
+  <div class="foot">Сделано для занятий дома · открывается без интернета после первой загрузки</div>
+</div>
+<script src="assets/ui.js"></script>
+<script>
+  UI.$$('.pr').forEach(n => {
+    const done = UI.Progress.countDone(n.dataset.prefix);
+    const total = +n.dataset.total;
+    n.innerHTML = '';
+    if (done > 0) n.appendChild(UI.el('div', { class: 'pill' + (done >= total ? ' ok' : ''), text: 'Решено ' + done + ' из ' + total }));
+  });
+  UI.$('#reset').addEventListener('click', () => {
+    if (confirm('Сбросить весь прогресс?')) { UI.Progress.reset(); location.reload(); }
+  });
+</script>
+</body>
+</html>
