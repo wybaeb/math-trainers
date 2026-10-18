@@ -254,6 +254,7 @@
       label: 'Какой процент берём', onChange: v => { pct = v; sync('pie'); }
     });
     const pctSlider = el('input', { type: 'range', min: 0, max: 100, step: 5, value: pct, 'aria-label': 'Процент' });
+    const pctInput = el('input', { type: 'number', min: 0, max: 100, step: 1, value: pct, 'aria-label': 'Сколько процентов берём' });
     const totalInput = el('input', { type: 'number', min: 1, max: 100, step: 1, value: total, 'aria-label': 'Сколько яблок в корзине' });
     const basketHost = el('div', {});
     const result = el('div', { class: 'readout' });
@@ -266,6 +267,7 @@
     function sync(from) {
       if (from !== 'pie') pie.set(pct, { silent: true });
       if (from !== 'slider') pctSlider.value = Math.round(pct);
+      if (from !== 'input') pctInput.value = Math.round(pct * 10) / 10;
       const exact = total * pct / 100;
       const k = Math.round(exact);
       basketRow.set(k);
@@ -276,6 +278,12 @@
         '<div class="muted" style="margin-top:4px">' + total + ' ÷ 100 × ' + UI.num(pct) + ' = ' + UI.num(exact) + '</div>';
     }
     pctSlider.addEventListener('input', () => { pct = +pctSlider.value; sync('slider'); });
+    function readPct() {
+      const raw = +String(pctInput.value).replace(',', '.');
+      return UI.clamp(isFinite(raw) ? raw : 0, 0, 100);
+    }
+    pctInput.addEventListener('input', () => { pct = readPct(); sync('input'); });
+    pctInput.addEventListener('change', () => { pct = readPct(); pctInput.value = pct; sync('input'); });
     function readTotal() {
       const raw = Math.round(+totalInput.value);
       return UI.clamp(isFinite(raw) && raw > 0 ? raw : 1, 1, 100);
@@ -290,6 +298,7 @@
         el('div', {}, [pie.node]),
         el('div', { class: 'side' }, [
           el('div', { class: 'row' }, [el('span', { text: 'В корзине' }), totalInput, el('span', { text: 'яблок' })]),
+          el('div', { class: 'row', style: 'margin-top:8px' }, [el('span', { text: 'Берём' }), pctInput, el('span', { text: '%' })]),
           el('div', { style: 'margin:12px 0 2px' }, [pctSlider]),
           result
         ])
