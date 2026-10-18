@@ -39,4 +39,5 @@ python3 -m http.server 8099 &
 python3 tools/smoke.py
 ```
 
-Нарезка задач и их статус — в [BACKLOG.md](BACKLOG.md).
+Нарезка задач и их статус — в [BACKLOG.md](BACKLOG.md), соответствие исходному
+заданию — в [MAP.md](MAP.md).
