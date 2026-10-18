@@ -7,6 +7,8 @@
 
   /* ================= доска: сетка ячеек из модели ================= */
   const ROW_NAME = { sum: 'цифра ответа', q: 'цифра частного', carry: 'перенос', carry2: 'перенос' };
+  const rowName = row => ROW_NAME[row]
+    || (/^pp\d+$/.test(row) ? 'цифра частичного произведения' : 'цифра');
 
   function makeBoard(m, mode) {
     const root = el('div', {
@@ -36,6 +38,7 @@
         rowEl.appendChild(cell);
         slots.set(r.id + '/' + c, cell);
       }
+      if (!m.cells.some(c => c.row === r.id)) rowEl.classList.add('empty');
       if (lineCells.length) {
         const prev = m.rows[ri - 1];
         const step = Math.min(minStep(r.id), prev ? minStep(prev.id) : Infinity);
@@ -75,7 +78,7 @@
       if (isInput) {
         node = el('input', {
           type: 'text', inputmode: 'numeric', maxlength: 1, disabled: 'disabled',
-          'aria-label': ROW_NAME[c.row] || (c.row === 'q' ? 'цифра частного' : 'цифра'),
+          'aria-label': rowName(c.row),
           autocomplete: 'off'
         });
       } else {
@@ -127,6 +130,7 @@
     const pick = el('div', { class: 'examples' });
     const stage = el('div', {});
     const say = el('div', { class: 'say', role: 'status', 'aria-live': 'polite' });
+    Speech.onChange(on => say.setAttribute('aria-live', on ? 'off' : 'polite'));
     const slider = el('input', { type: 'range', min: 0, max: 1, value: 0, step: 1, 'aria-label': 'Шаг' });
     const prev = el('button', { class: 'btn quiet small', type: 'button', text: '←' });
     const next = el('button', { class: 'btn quiet small', type: 'button', text: '→' });
@@ -194,13 +198,13 @@
       Array.from(pick.children).forEach((b, i) => b.setAttribute('aria-pressed', String(cfg.examples[i] === example)));
       Array.from(ways.children).forEach((b, i) => b.setAttribute('aria-pressed', String(cfg.makers[i] === maker)));
       if (maker.hint) hintEl.textContent = maker.hint;
-      show(0, { silent: silent !== false });
+      show(0, { silent: !!silent });
     }
 
     if (cfg.makers.length > 1) {
       cfg.makers.forEach(mk => {
         const b = el('button', { type: 'button', text: mk.label });
-        b.addEventListener('click', () => { maker = mk; load(); });
+        b.addEventListener('click', () => { maker = mk; load(false); });
         ways.appendChild(b);
       });
       card.appendChild(el('div', { class: 'row center', style: 'justify-content:center;gap:8px;margin-bottom:4px' },
@@ -208,7 +212,7 @@
     }
     cfg.examples.forEach(ex => {
       const b = el('button', { type: 'button', text: ex[0] + cfg.op + ex[1] });
-      b.addEventListener('click', () => { example = ex; load(); });
+      b.addEventListener('click', () => { example = ex; load(false); });
       pick.appendChild(b);
     });
 
@@ -235,6 +239,7 @@
     const board = makeBoard(m, 'practice');
     const wrap = el('div', { class: 'pcard' });
     const say = el('div', { class: 'say', role: 'status', 'aria-live': 'polite', style: 'display:none' });
+    Speech.onChange(on => say.setAttribute('aria-live', on ? 'off' : 'polite'));
     const hintBtn = el('button', { class: 'btn quiet small', type: 'button', text: '💡 Подсказать шаг' });
     const writeBtn = el('button', { class: 'btn quiet small', type: 'button', text: '✍️ Записать за меня' });
     const againBtn = el('button', { class: 'btn quiet small', type: 'button', text: '↺ Сначала' });
@@ -350,6 +355,9 @@
       advance();
     });
 
+    addEventListener('levelshown', () => Speech.cancel());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) Speech.cancel(); });
+
     wrap.appendChild(el('div', { class: 'title', text: a + op + b + ' = ?' }));
     wrap.appendChild(board.node);
     wrap.appendChild(say);
@@ -370,7 +378,7 @@
       title: 'Умножение столбиком — по шагам',
       hint: '',
       op: ' × ',
-      examples: [[23, 4], [47, 23], [84, 36], [328, 47]],
+      examples: [[23, 4], [47, 23], [506, 7], [328, 47]],
       makers: [
         { key: 'sum', label: 'через сложение', fn: LongMath.multiplyBySum,
           hint: 'Умножаем каждую цифру на каждую, каждый кусочек пишем отдельной строчкой со сдвигом, а потом складываем всё столбиком. В уме держать нечего. Зелёным — какие цифры перемножаем, голубым — куда пишем сейчас.' },
@@ -394,7 +402,7 @@
       el('p', { class: 'muted', text: 'Умножаем каждую цифру на каждую и пишем кусочки отдельными строчками со сдвигом, а потом складываем. Голубая клетка показывает, куда писать сейчас. Не идёт — нажми «Подсказать шаг». Кнопка «Записать за меня» впишет одну цифру.' })
     ]));
     const box = el('div', { class: 'card' });
-    [[36, 4], [128, 7], [47, 23], [58, 24]].forEach((ex, i) =>
+    [[36, 4], [128, 7], [47, 23], [205, 36]].forEach((ex, i) =>
       practice(box, task('col/mul-' + i), ex[0], ex[1], LongMath.multiplyBySum, ' × '));
     host.appendChild(box);
   }
