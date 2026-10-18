@@ -2,6 +2,8 @@
 (function () {
   'use strict';
   const { el, $, Progress, num } = UI;
+  const TASK_IDS = [];                 // регистр заданий: из него считается общий счётчик
+  const task = id => { TASK_IDS.push(id); return id; };
 
   /* ================= Уровень 1 — песочница ================= */
   function buildSandbox(host) {
@@ -58,9 +60,59 @@
     set(25);
   }
 
+
+  /* ================= Уровень 2 — поставь нужный процент (без подсказки) ================= */
+  function buildSetPercent(host) {
+    const TASKS = [50, 25, 75, 10, 30, 60];
+    const grid = el('div', { class: 'task-grid' });
+
+    TASKS.forEach((target, i) => {
+      const id = task('pct/l2-' + target);
+      const cell = el('div', { class: 'task-cell' });
+      const pie = Pie.create({
+        size: 230, value: 0, interactive: true, snapStep: 5, snapTol: 2.2,
+        center: '', tickLabels: false, label: 'Поставь ' + target + ' процентов'
+      });
+      const verdict = el('div', { class: 'verdict' });
+      const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
+
+      function check() {
+        const v = pie.get();
+        const ok = Math.abs(v - target) < 0.51;
+        cell.classList.toggle('solved', ok);
+        verdict.className = 'verdict ' + (ok ? 'ok' : 'bad');
+        if (ok) {
+          pie.setCenter(target + '%');
+          verdict.textContent = 'Верно! Это ' + target + '%';
+          Progress.done(id);
+          UI.pulse(cell);
+        } else {
+          pie.setCenter('');
+          verdict.textContent = v < target ? 'Пока мало — поверни дальше' : 'Перебор — поверни назад';
+        }
+      }
+      btn.addEventListener('click', check);
+
+      cell.appendChild(el('div', { class: 'ask', text: 'Поставь ' + target + '%' }));
+      cell.appendChild(pie.node);
+      cell.appendChild(btn);
+      cell.appendChild(verdict);
+      grid.appendChild(cell);
+
+      if (Progress.isDone(id)) { pie.set(target); pie.setCenter(target + '%'); cell.classList.add('solved'); }
+    });
+
+    host.appendChild(el('div', { class: 'card' }, [
+      el('h2', { text: 'Поставь нужную долю', style: 'margin-top:0' }),
+      el('p', { class: 'muted', text: 'Числа на диаграмме спрятаны — ставь на глаз, по засечкам. Потом нажми «Проверить».' })
+    ]));
+    host.appendChild(grid);
+  }
+
   /* ================= сборка страницы ================= */
   const L = {
-    lvl1: buildSandbox
+    lvl1: buildSandbox,
+    lvl2: buildSetPercent
   };
   Object.keys(L).forEach(id => { const n = document.getElementById(id); if (n) L[id](n); });
   UI.levels();
@@ -68,7 +120,7 @@
   /* общий счётчик решённого */
   const score = $('#score');
   function updScore() {
-    const total = (window.PCT_TOTAL || 0);
+    const total = TASK_IDS.length;
     const done = Progress.countDone('pct/');
     if (!total) { score.style.display = 'none'; return; }
     score.textContent = 'Решено ' + done + ' из ' + total;
