@@ -74,8 +74,130 @@
     sync();
   }
 
+
+  /* ======= общий конструктор задания на округление ======= */
+  /** cfg: {id, value, mode, prompt, exprPrefix} */
+  function roundTask(cfg) {
+    const v = cfg.value, mode = cfg.mode;
+    const answer = NumberLine.MODES[mode].round(v);
+    const lo = Math.floor(v) - 1, hi = Math.floor(v) + 2;
+    const row = el('div', { class: 'rt' });
+
+    const line = NumberLine.create({
+      min: lo, max: hi, value: v, mode, compact: true, showTarget: false,
+      label: 'Где стоит число ' + fmt(v)
+    });
+
+    const inp = el('input', { type: 'number', inputmode: 'numeric', placeholder: '?', 'aria-label': 'Ответ' });
+    const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
+    const verdict = el('div', { class: 'verdict' });
+
+    row.appendChild(el('div', { class: 'q', text: cfg.prompt }));
+    row.appendChild(el('div', { class: 'line-wrap' }, [line.node]));
+    row.appendChild(el('div', { class: 'answer' }, [inp, btn]));
+    row.appendChild(verdict);
+
+    UI.checker({
+      id: cfg.id, answer, input: inp, button: btn, verdict,
+      okText: 'Верно: ' + fmt(v) + ' → ' + answer,
+      onSolved() { line.reveal(true); UI.pulse(row); }
+    });
+    if (Progress.isDone(cfg.id)) {
+      inp.value = answer; inp.classList.add('ok'); line.reveal(true);
+      verdict.className = 'verdict ok'; verdict.textContent = 'Решено';
+    }
+    return row;
+  }
+
+  function taskLevel(host, cfg) {
+    host.appendChild(el('div', { class: 'card' }, [
+      el('h2', { text: cfg.title, style: 'margin-top:0' }),
+      el('p', { class: 'muted', text: cfg.hint })
+    ]));
+    const box = el('div', { class: 'card' });
+    cfg.items.forEach((v, i) => box.appendChild(roundTask({
+      id: task(cfg.prefix + i), value: v, mode: cfg.mode,
+      prompt: cfg.verb + ': ' + fmt(v)
+    })));
+    host.appendChild(box);
+  }
+
+  /* ================= Уровни 2–4 — вверх, вниз, до ближайшего ================= */
+  function buildUp(host) {
+    taskLevel(host, {
+      title: 'Округляем вверх', mode: 'up', prefix: 'rnd/up-', verb: 'Округли вверх',
+      hint: 'Вверх — всегда к большему целому, даже если хвостик совсем маленький. Полоска подсказывает, между какими целыми стоит число.',
+      items: [4.3, 7.1, 2.8, 5.5, 9.2, 1.9]
+    });
+  }
+  function buildDown(host) {
+    taskLevel(host, {
+      title: 'Округляем вниз', mode: 'down', prefix: 'rnd/dn-', verb: 'Округли вниз',
+      hint: 'Вниз — всегда к меньшему целому: просто отбрасываем хвостик, каким бы большим он ни был.',
+      items: [4.7, 8.2, 3.5, 6.9, 2.1, 9.8]
+    });
+  }
+  function buildNearest(host) {
+    taskLevel(host, {
+      title: 'До ближайшего целого', mode: 'nearest', prefix: 'rnd/nr-', verb: 'Округли до целого',
+      hint: 'Смотрим на хвостик: меньше половины — вниз, половина и больше — вверх.',
+      items: [4.4, 4.6, 7.5, 2.3, 8.7, 5.5]
+    });
+  }
+
+  /* ================= Уровень 5 — раздели и округли ================= */
+  const DIVS = [[17, 4], [23, 5], [9, 2], [31, 6], [44, 8], [50, 7]];
+  function buildDivide(host) {
+    host.appendChild(el('div', { class: 'card' }, [
+      el('h2', { text: 'Раздели и округли', style: 'margin-top:0' }),
+      el('p', { class: 'muted', text: 'Сначала раздели, потом округли результат до ближайшего целого. Полоска покажет, куда попал ответ, когда решишь.' })
+    ]));
+    const box = el('div', { class: 'card' });
+    DIVS.forEach((d, i) => {
+      const q = d[0] / d[1];
+      const id = task('rnd/div-' + i);
+      const answer = Math.round(q);
+      const row = el('div', { class: 'rt' });
+      const lo = Math.floor(q) - 1, hi = Math.floor(q) + 2;
+      const line = NumberLine.create({ min: lo, max: hi, value: q, mode: 'nearest', compact: true,
+        showTarget: false, label: 'Где стоит частное' });
+
+      const inp = el('input', { type: 'number', inputmode: 'numeric', placeholder: '?', 'aria-label': 'Ответ' });
+      const btn = el('button', { class: 'btn small', type: 'button', text: 'Проверить' });
+      const peek = el('button', { class: 'btn quiet small', type: 'button', text: '👀 Показать полоску' });
+      const verdict = el('div', { class: 'verdict' });
+      const lineWrap = el('div', { class: 'line-wrap', style: 'display:none' }, [line.node]);
+
+      peek.addEventListener('click', () => {
+        const on = lineWrap.style.display === 'none';
+        lineWrap.style.display = on ? '' : 'none';
+        peek.textContent = on ? '🙈 Спрятать полоску' : '👀 Показать полоску';
+      });
+
+      row.appendChild(el('div', { class: 'q', text: d[0] + ' ÷ ' + d[1] + ' = ? (до целого)' }));
+      row.appendChild(el('div', { class: 'center', style: 'margin:8px 0' }, [peek]));
+      row.appendChild(lineWrap);
+      row.appendChild(el('div', { class: 'answer' }, [inp, btn]));
+      row.appendChild(verdict);
+      box.appendChild(row);
+
+      const exact = Math.abs(q - Math.round(q * 100) / 100) < 1e-9;
+      UI.checker({
+        id, answer, input: inp, button: btn, verdict,
+        okText: 'Верно: ' + d[0] + ' ÷ ' + d[1] + ' = ' + (exact ? '' : '≈ ') + fmt(q) + ' → ' + answer,
+        onSolved() { lineWrap.style.display = ''; peek.textContent = '🙈 Спрятать полоску'; line.reveal(true); UI.pulse(row); }
+      });
+      if (Progress.isDone(id)) {
+        inp.value = answer; inp.classList.add('ok'); lineWrap.style.display = ''; line.reveal(true);
+        peek.textContent = '🙈 Спрятать полоску';
+        verdict.className = 'verdict ok'; verdict.textContent = 'Решено';
+      }
+    });
+    host.appendChild(box);
+  }
+
   /* ================= сборка ================= */
-  const L = { lvl1: buildDemo };
+  const L = { lvl1: buildDemo, lvl2: buildUp, lvl3: buildDown, lvl4: buildNearest, lvl5: buildDivide };
   Object.keys(L).forEach(id => { const n = document.getElementById(id); if (n) L[id](n); });
   UI.levels();
 

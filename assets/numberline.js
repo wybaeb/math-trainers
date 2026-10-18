@@ -43,7 +43,7 @@
 
     // зона «куда округлится»
     const zone = mk('rect', { y: axis - 16, height: 32, rx: 8, fill: 'var(--ok)', opacity: .12 });
-    if (o.showTarget) svg.appendChild(zone);
+    svg.appendChild(zone);
 
     svg.appendChild(mk('line', { x1: PAD - 14, y1: axis, x2: W - PAD + 14, y2: axis, stroke: 'var(--ink-soft)', 'stroke-width': 2.5, 'stroke-linecap': 'round' }));
 
@@ -72,7 +72,8 @@
     // точка-цель
     const target = mk('circle', { r: 9, cy: axis, fill: 'var(--ok)' });
     const arrow = mk('path', { fill: 'none', stroke: 'var(--ok)', 'stroke-width': 2.5, 'stroke-linecap': 'round' });
-    if (o.showTarget) { svg.appendChild(arrow); svg.appendChild(target); }
+    svg.appendChild(arrow); svg.appendChild(target);
+    let targetShown = o.showTarget;
 
     // бегунок
     const knobY = axis - (o.compact ? 34 : 44);
@@ -106,8 +107,9 @@
       const lift = axis - (o.compact ? 26 : 32);
       arrow.setAttribute('d', Math.abs(tx - xx) < 1 ? '' :
         `M ${xx} ${axis - 2} Q ${(xx + tx) / 2} ${lift} ${tx} ${axis - 10}`);
+      [zone, target, arrow].forEach(n => { n.style.display = targetShown ? '' : 'none'; });
       Object.keys(intTicks).forEach(k => {
-        const on = Number(k) === t;
+        const on = targetShown && Number(k) === t;
         intTicks[k].setAttribute('fill', on ? 'var(--ok)' : 'var(--ink-soft)');
         intTicks[k].setAttribute('font-size', (on ? (o.compact ? 19 : 21) : (o.compact ? 16 : 18)));
       });
@@ -117,8 +119,8 @@
 
     function set(v, silent) {
       const prev = value;
-      value = clamp(Math.round(v / o.step) * o.step, o.min, o.max);
-      value = Math.round(value * 1000) / 1000;
+      value = clamp(o.interactive ? Math.round(v / o.step) * o.step : v, o.min, o.max);
+      value = Math.round(value * 10000) / 10000;
       render();
       if (!silent && value !== prev && o.onChange) o.onChange(value);
       return value;
@@ -155,6 +157,7 @@
       get: () => value,
       set,
       setMode(m) { mode = m; render(); },
+      reveal(on) { targetShown = on !== false; render(); },
       getMode: () => mode,
       rounded: () => MODES[mode].round(value)
     };
